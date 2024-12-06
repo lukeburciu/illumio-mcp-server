@@ -35,6 +35,35 @@ API_KEY=your-api-key
 API_SECRET=your-api-secret
 ```
 
+## Claude Desktop
+
+On MacOS: `~/Library/Application\ Support/Claude/claude_desktop_config.json`
+On Windows: `%APPDATA%/Claude/claude_desktop_config.json`
+
+Add the following to the `custom_settings` section:
+
+```json
+"mcpServers": {
+    "illumio-mcp": {
+      "command": "uv",
+      "args": [
+        "--directory",
+        "/Users/alex.goller/git/illumio-mcp",
+        "run",
+        "illumio-mcp"
+      ],
+      "env": {
+        "PCE_HOST": "your-pce-host",
+        "PCE_PORT": "your-pce-port",
+        "PCE_ORG_ID": "1", # your org id
+        "API_KEY": "api_key",
+        "API_SECRET": "api_secret"
+      }
+    }
+  }
+}
+```
+
 ## Features
 
 ### Resources
