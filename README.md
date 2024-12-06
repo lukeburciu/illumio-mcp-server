@@ -25,17 +25,9 @@ pip install -r requirements.txt
 
 ## Configuration
 
-Create a `.env` file in the root directory with the following variables:
+You should run this using the `uv` command, which makes it easier to pass in environment variables and run it in the background.
 
-```env
-PCE_HOST=your-pce-host
-PCE_PORT=your-pce-port
-PCE_ORG_ID=your-org-id
-API_KEY=your-api-key
-API_SECRET=your-api-secret
-```
-
-## Claude Desktop
+## Using uv and Claude Desktop
 
 On MacOS: `~/Library/Application\ Support/Claude/claude_desktop_config.json`
 On Windows: `%APPDATA%/Claude/claude_desktop_config.json`
@@ -67,6 +59,9 @@ Add the following to the `custom_settings` section:
 ## Features
 
 ### Resources
+
+Resources are not finished yet and i will look into that later.
+
 - `illumio://workloads` - Get workloads from the PCE
 - `illumio://labels` - Get all labels from PCE
 
@@ -87,45 +82,6 @@ Add the following to the `custom_settings` section:
 - `get-traffic-flows` - Get detailed traffic flow data
 - `get-traffic-flows-summary` - Get summarized traffic flow information
 
-## Usage Examples
-
-### Creating a Workload
-
-```json
-{
-    "name": "test-workload",
-    "ip_addresses": ["10.0.0.1"],
-    "labels": [
-        {
-            "key": "app",
-            "value": "web"
-        },
-        {
-            "key": "env",
-            "value": "prod"
-        }
-    ]
-}
-```
-
-### Getting Traffic Flows
-
-```json
-{
-    "limit": 1000,
-    "start_date": "2024-01-01",
-    "end_date": "2024-01-31"
-}
-```
-
-## Logging
-
-The server logs are written to:
-- Standard error (stderr)
-- `illumio-mcp.log` file
-
-Log level is set to DEBUG by default for detailed operation tracking.
-
 ## Error Handling
 
 The server implements comprehensive error handling and logging:
@@ -139,6 +95,8 @@ All errors are logged with full stack traces and returned as formatted error mes
 ## Development
 
 ### Running Tests
+
+Testing is not implemented yet.
 
 ```bash
 python -m pytest tests/
@@ -157,8 +115,8 @@ Set logging level to DEBUG in the code or environment for detailed operation log
 
 ## License
 
-[Your License Here]
+This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
 
 ## Support
 
-For support, please [create an issue](your-issue-tracker-url) or contact [your-contact-info].
+For support, please [create an issue](https://github.com/illumio/illumio-mcp/issues).
