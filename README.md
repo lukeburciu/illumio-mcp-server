@@ -1,111 +1,135 @@
-# illumio-mcp MCP server
+# Illumio MCP Server
 
-A MCP server project
+A Machine Conversation Protocol (MCP) server that provides an interface to interact with Illumio PCE (Policy Compute Engine). This server enables programmatic access to Illumio workload management, label operations, and traffic flow analysis.
 
-## Components
+## Prerequisites
 
-### Resources
+- Python 3.8+
+- Access to an Illumio PCE instance
+- Valid API credentials for the PCE
 
-The server implements a simple note storage system with:
-- Custom note:// URI scheme for accessing individual notes
-- Each note resource has a name, description and text/plain mimetype
+## Installation
 
-### Prompts
+1. Clone the repository:
 
-The server provides a single prompt:
-- summarize-notes: Creates summaries of all stored notes
-  - Optional "style" argument to control detail level (brief/detailed)
-  - Generates prompt combining all current notes with style preference
+```bash
+git clone [repository-url]
+cd illumio-mcp
+```
 
-### Tools
+2. Install dependencies:
 
-The server implements one tool:
-- add-note: Adds a new note to the server
-  - Takes "name" and "content" as required string arguments
-  - Updates server state and notifies clients of resource changes
+```bash
+pip install -r requirements.txt
+```
 
 ## Configuration
 
-[TODO: Add configuration details specific to your implementation]
+Create a `.env` file in the root directory with the following variables:
 
-## Quickstart
+```env
+PCE_HOST=your-pce-host
+PCE_PORT=your-pce-port
+PCE_ORG_ID=your-org-id
+API_KEY=your-api-key
+API_SECRET=your-api-secret
+```
 
-### Install
+## Features
 
-#### Claude Desktop
+### Resources
+- `illumio://workloads` - Get workloads from the PCE
+- `illumio://labels` - Get all labels from PCE
 
-On MacOS: `~/Library/Application\ Support/Claude/claude_desktop_config.json`
-On Windows: `%APPDATA%/Claude/claude_desktop_config.json`
+### Tools
 
-<details>
-  <summary>Development/Unpublished Servers Configuration</summary>
-  ```
-  "mcpServers": {
-    "illumio-mcp": {
-      "command": "uv",
-      "args": [
-        "--directory",
-        "/Users/alex.goller/git/illumio-mcp",
-        "run",
-        "illumio-mcp"
-      ]
-    }
-  }
-  ```
-</details>
+#### Workload Management
+- `get-workloads` - Retrieve workloads from PCE
+- `create-workload` - Create an unmanaged workload
+- `update-workload` - Update existing workload properties
+- `delete-workload` - Remove a workload from PCE
 
-<details>
-  <summary>Published Servers Configuration</summary>
-  ```
-  "mcpServers": {
-    "illumio-mcp": {
-      "command": "uvx",
-      "args": [
-        "illumio-mcp"
-      ]
-    }
-  }
-  ```
-</details>
+#### Label Operations
+- `create-label` - Create a new label
+- `delete-label` - Remove an existing label
+- `get-labels` - Retrieve all labels from PCE
+
+#### Traffic Analysis
+- `get-traffic-flows` - Get detailed traffic flow data
+- `get-traffic-flows-summary` - Get summarized traffic flow information
+
+## Usage Examples
+
+### Creating a Workload
+
+```json
+{
+    "name": "test-workload",
+    "ip_addresses": ["10.0.0.1"],
+    "labels": [
+        {
+            "key": "app",
+            "value": "web"
+        },
+        {
+            "key": "env",
+            "value": "prod"
+        }
+    ]
+}
+```
+
+### Getting Traffic Flows
+
+```json
+{
+    "limit": 1000,
+    "start_date": "2024-01-01",
+    "end_date": "2024-01-31"
+}
+```
+
+## Logging
+
+The server logs are written to:
+- Standard error (stderr)
+- `illumio-mcp.log` file
+
+Log level is set to DEBUG by default for detailed operation tracking.
+
+## Error Handling
+
+The server implements comprehensive error handling and logging:
+- PCE connection issues
+- API authentication failures
+- Resource creation/update failures
+- Invalid input validation
+
+All errors are logged with full stack traces and returned as formatted error messages to the client.
 
 ## Development
 
-### Building and Publishing
-
-To prepare the package for distribution:
-
-1. Sync dependencies and update lockfile:
-```bash
-uv sync
-```
-
-2. Build package distributions:
-```bash
-uv build
-```
-
-This will create source and wheel distributions in the `dist/` directory.
-
-3. Publish to PyPI:
-```bash
-uv publish
-```
-
-Note: You'll need to set PyPI credentials via environment variables or command flags:
-- Token: `--token` or `UV_PUBLISH_TOKEN`
-- Or username/password: `--username`/`UV_PUBLISH_USERNAME` and `--password`/`UV_PUBLISH_PASSWORD`
-
-### Debugging
-
-Since MCP servers run over stdio, debugging can be challenging. For the best debugging
-experience, we strongly recommend using the [MCP Inspector](https://github.com/modelcontextprotocol/inspector).
-
-
-You can launch the MCP Inspector via [`npm`](https://docs.npmjs.com/downloading-and-installing-node-js-and-npm) with this command:
+### Running Tests
 
 ```bash
-npx @modelcontextprotocol/inspector uv --directory /Users/alex.goller/git/illumio-mcp run illumio-mcp
+python -m pytest tests/
 ```
 
+### Debug Mode
+Set logging level to DEBUG in the code or environment for detailed operation logs.
 
-Upon launching, the Inspector will display a URL that you can access in your browser to begin debugging.
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Commit your changes
+4. Push to the branch
+5. Create a Pull Request
+
+## License
+
+[Your License Here]
+
+## Support
+
+For support, please [create an issue](your-issue-tracker-url) or contact [your-contact-info].
