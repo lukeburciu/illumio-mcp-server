@@ -268,6 +268,14 @@ async def handle_list_tools() -> list[types.Tool]:
                     "end_date": {"type": "string"},
                 }
             }
+        ),
+        types.Tool(
+            name="check-pce-connection",
+            description="Are my credentials and the connection to the PCE working?",
+            inputSchema={
+                "type": "object",
+                "properties": {}
+            }
         )
     ]
 
@@ -298,6 +306,22 @@ async def handle_call_tool(
             return [types.TextContent(
                 type="text",
                 text=f"Workloads: {workloads}"
+            )]
+        except Exception as e:
+            error_msg = f"Failed in PCE operation: {str(e)}"
+            logger.error(error_msg, exc_info=True)
+            return [types.TextContent(
+                type="text",
+                text=f"Error: {error_msg}"
+            )]
+    elif name == "check-pce-connection":
+        logger.debug("Initializing PCE connection")
+        try:
+            pce = PolicyComputeEngine(PCE_HOST, port=PCE_PORT, org_id=PCE_ORG_ID)
+            pce.set_credentials(API_KEY, API_SECRET)
+            return [types.TextContent(
+                type="text",
+                text=f"PCE connection successful"
             )]
         except Exception as e:
             error_msg = f"Failed in PCE operation: {str(e)}"
