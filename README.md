@@ -2,6 +2,15 @@
 
 A Model Context Protocol (MCP) server that provides an interface to interact with Illumio PCE (Policy Compute Engine). This server enables programmatic access to Illumio workload management, label operations, and traffic flow analysis.
 
+## What can it do?
+
+Use conversational AI to talk to your PCE:
+
+- Create, update and delete workloads
+- Create, update and delete labels
+- Get traffic summaries and do security analysis on them
+- Get PCE health
+
 ## Prerequisites
 
 - Python 3.8+
