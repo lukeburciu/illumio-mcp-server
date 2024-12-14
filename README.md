@@ -77,19 +77,40 @@ Resources are not finished yet and i will look into that later.
 ### Tools
 
 #### Workload Management
-- `get-workloads` - Retrieve workloads from PCE
-- `create-workload` - Create an unmanaged workload
-- `update-workload` - Update existing workload properties
-- `delete-workload` - Remove a workload from PCE
+- `get-workloads` - Retrieve all workloads from PCE
+- `create-workload` - Create an unmanaged workload with specified name, IP addresses, and labels
+- `update-workload` - Update an existing workload's properties
+- `delete-workload` - Remove a workload from PCE by name
 
 #### Label Operations
-- `create-label` - Create a new label
-- `delete-label` - Remove an existing label
+- `create-label` - Create a new label with key-value pair
+- `delete-label` - Remove an existing label by key-value pair
 - `get-labels` - Retrieve all labels from PCE
 
 #### Traffic Analysis
-- `get-traffic-flows` - Get detailed traffic flow data
-- `get-traffic-flows-summary` - Get summarized traffic flow information
+- `get-traffic-flows` - Get detailed traffic flow data with comprehensive filtering options:
+  - Date range filtering
+  - Source/destination filtering
+  - Service (port/protocol) filtering
+  - Policy decision filtering
+  - Workload and IP list query options
+  - Results limiting
+  
+- `get-traffic-flows-summary` - Get summarized traffic flow information with the same filtering capabilities as get-traffic-flows
+
+#### Policy Management
+- `get-rulesets` - Get rulesets from the PCE with optional filtering:
+  - Filter by name
+  - Filter by enabled status
+
+#### IP Lists Management
+- `get-iplists` - Get IP lists from the PCE with optional filtering:
+  - Filter by name
+  - Filter by description
+  - Filter by IP ranges
+
+#### Connection Testing
+- `check-pce-connection` - Verify PCE connectivity and credentials
 
 ## Error Handling
 
