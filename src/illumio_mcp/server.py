@@ -243,19 +243,64 @@ async def handle_list_tools() -> list[types.Tool]:
         ),
         types.Tool(
             name="get-traffic-flows",
-            description="Get traffic flows from the PCE",
+            description="Get traffic flows from the PCE with comprehensive filtering options",
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "limit": {"type": "integer"},
-                    "start_date": {"type": "string"},
-                    "end_date": {"type": "string"},
-                    "include_sources": {"type": "array", "items": {"type": "object"}},
-                    "include_services": {"type": "array", "items": {"type": "object"}},
-                    "exclude_services": {"type": "array", "items": {"type": "object"}},
-                    "exclude_destinations": {"type": "array", "items": {"type": "object"}},
-                    "policy_decisions": {"type": "array", "items": {"type": "string"}},
-                }
+                    "start_date": {"type": "string", "description": "Starting datetime (YYYY-MM-DD or timestamp)"},
+                    "end_date": {"type": "string", "description": "Ending datetime (YYYY-MM-DD or timestamp)"},
+                    "include_sources": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Sources to include (label/IP list/workload HREFs, FQDNs, IPs)"
+                    },
+                    "exclude_sources": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Sources to exclude (label/IP list/workload HREFs, FQDNs, IPs)"
+                    },
+                    "include_destinations": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Destinations to include (label/IP list/workload HREFs, FQDNs, IPs)"
+                    },
+                    "exclude_destinations": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Destinations to exclude (label/IP list/workload HREFs, FQDNs, IPs)"
+                    },
+                    "include_services": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "port": {"type": "integer"},
+                                "proto": {"type": "string"}
+                            }
+                        }
+                    },
+                    "exclude_services": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "port": {"type": "integer"},
+                                "proto": {"type": "string"}
+                            }
+                        }
+                    },
+                    "policy_decisions": {
+                        "type": "array",
+                        "items": {
+                            "type": "string",
+                            "enum": ["allowed", "blocked", "potentially_blocked", "unknown"]
+                        }
+                    },
+                    "exclude_workloads_from_ip_list_query": {"type": "boolean"},
+                    "max_results": {"type": "integer"},
+                    "query_name": {"type": "string"}
+                },
+                "required": ["start_date", "end_date"]
             }
         ),
         types.Tool(
@@ -264,9 +309,60 @@ async def handle_list_tools() -> list[types.Tool]:
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "start_date": {"type": "string"},
-                    "end_date": {"type": "string"},
-                }
+                    "start_date": {"type": "string", "description": "Starting datetime (YYYY-MM-DD or timestamp)"},
+                    "end_date": {"type": "string", "description": "Ending datetime (YYYY-MM-DD or timestamp)"},
+                    "include_sources": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Sources to include (label/IP list/workload HREFs, FQDNs, IPs)"
+                    },
+                    "exclude_sources": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Sources to exclude (label/IP list/workload HREFs, FQDNs, IPs)"
+                    },
+                    "include_destinations": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Destinations to include (label/IP list/workload HREFs, FQDNs, IPs)"
+                    },
+                    "exclude_destinations": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Destinations to exclude (label/IP list/workload HREFs, FQDNs, IPs)"
+                    },
+                    "include_services": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "port": {"type": "integer"},
+                                "proto": {"type": "string"}
+                            }
+                        }
+                    },
+                    "exclude_services": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "port": {"type": "integer"},
+                                "proto": {"type": "string"}
+                            }
+                        }
+                    },
+                    "policy_decisions": {
+                        "type": "array",
+                        "items": {
+                            "type": "string",
+                            "enum": ["allowed", "potentially_blocked", "blocked", "unknown"]
+                        }
+                    },
+                    "exclude_workloads_from_ip_list_query": {"type": "boolean"},
+                    "max_results": {"type": "integer"},
+                    "query_name": {"type": "string"}
+                },
+                "required": ["start_date", "end_date"]
             }
         ),
         types.Tool(
@@ -275,6 +371,47 @@ async def handle_list_tools() -> list[types.Tool]:
             inputSchema={
                 "type": "object",
                 "properties": {}
+            }
+        ),
+        types.Tool(
+            name="get-rulesets",
+            description="Get rulesets from the PCE",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "description": "Filter rulesets by name (optional)"
+                    },
+                    "enabled": {
+                        "type": "boolean",
+                        "description": "Filter by enabled/disabled status (optional)"
+                    }
+                }
+            }
+        ),
+        types.Tool(
+            name="get-iplists",
+            description="Get IP lists from the PCE",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "description": "Filter IP lists by name (optional)"
+                    },
+                    "description": {
+                        "type": "string",
+                        "description": "Filter by description (optional)"
+                    },
+                    "ip_ranges": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "description": "Filter by IP ranges (optional)"
+                    }
+                }
             }
         )
     ]
@@ -538,51 +675,99 @@ async def handle_call_tool(
                 text=f"Error: {error_msg}"
             )]
     elif name == "get-traffic-flows":
-        logger.debug(f"Getting traffic flows with limit: {arguments['limit']}")
+        logger.debug("=" * 80)
+        logger.debug("GET TRAFFIC FLOWS CALLED")
+        logger.debug(f"Arguments received: {json.dumps(arguments, indent=2)}")
+        logger.debug(f"Start Date: {arguments.get('start_date')}")
+        logger.debug(f"End Date: {arguments.get('end_date')}")
+        logger.debug(f"Include Sources: {arguments.get('include_sources', [])}")
+        logger.debug(f"Exclude Sources: {arguments.get('exclude_sources', [])}")
+        logger.debug(f"Include Destinations: {arguments.get('include_destinations', [])}")
+        logger.debug(f"Exclude Destinations: {arguments.get('exclude_destinations', [])}")
+        logger.debug(f"Include Services: {arguments.get('include_services', [])}")
+        logger.debug(f"Exclude Services: {arguments.get('exclude_services', [])}")
+        logger.debug(f"Policy Decisions: {arguments.get('policy_decisions', [])}")
+        logger.debug(f"Exclude Workloads from IP List: {arguments.get('exclude_workloads_from_ip_list_query', True)}")
+        logger.debug(f"Max Results: {arguments.get('max_results', 100000)}")
+        logger.debug(f"Query Name: {arguments.get('query_name')}")
+        logger.debug("=" * 80)
+
         try:
             pce = PolicyComputeEngine(PCE_HOST, port=PCE_PORT, org_id=PCE_ORG_ID)
             pce.set_credentials(API_KEY, API_SECRET)
-            # d_end is now, d_start is 30 days ago
-            d_end = datetime.now()
-            d_start = d_end - timedelta(days=30)
 
             traffic_query = TrafficQuery.build(
-                start_date=d_start.strftime("%Y-%m-%d"),
-                end_date=d_end.strftime("%Y-%m-%d"),
-                include_services=[],
-                exclude_services=[
-                        {"port": 53},
-                        {"port": 137},
-                        {"port": 138},
-                        {"port": 139},
-                        {"proto": "udp"}
-                ],
-                exclude_destinations=[
-                        {"transmission": "broadcast"},
-                        {"transmission": "multicast"}
-                ],
-                policy_decisions=['allowed', 'potentially_blocked', 'unknown'],
-                max_results=arguments['limit']
+                start_date=arguments['start_date'],
+                end_date=arguments['end_date'],
+                include_sources=arguments.get('include_sources', [[]]),
+                exclude_sources=arguments.get('exclude_sources', []),
+                include_destinations=arguments.get('include_destinations', [[]]),
+                exclude_destinations=arguments.get('exclude_destinations', []),
+                include_services=arguments.get('include_services', []),
+                exclude_services=arguments.get('exclude_services', []),
+                policy_decisions=arguments.get('policy_decisions', []),
+                exclude_workloads_from_ip_list_query=arguments.get('exclude_workloads_from_ip_list_query', True),
+                max_results=arguments.get('max_results', 100000),
+                query_name=arguments.get('query_name', 'mcp-traffic-query')
             )
 
             all_traffic = pce.get_traffic_flows_async(
-                query_name='all-traffic',
+                query_name=arguments.get('query_name', 'mcp-traffic-query'),
                 traffic_query=traffic_query
             )
+            
+            # Convert the traffic flows to a serializable format
+            traffic_data = []
+            for flow in all_traffic:
+                try:
+                    flow_dict = {
+                        'src_ip': str(flow.src.ip) if flow.src and hasattr(flow.src, 'ip') else None,
+                        'dst_ip': str(flow.dst.ip) if flow.dst and hasattr(flow.dst, 'ip') else None,
+                        'proto': str(flow.service.proto) if flow.service and hasattr(flow.service, 'proto') else None,
+                        'port': int(flow.service.port) if flow.service and hasattr(flow.service, 'port') else None,
+                        'policy_decision': str(flow.policy_decision) if hasattr(flow, 'policy_decision') else None,
+                        'num_connections': int(flow.num_connections) if hasattr(flow, 'num_connections') else 0
+                    }
+                    # Add workload information if available
+                    if hasattr(flow.src, 'workload') and flow.src.workload:
+                        flow_dict['src_workload'] = str(flow.src.workload.name)
+                    if hasattr(flow.dst, 'workload') and flow.dst.workload:
+                        flow_dict['dst_workload'] = str(flow.dst.workload.name)
+                    
+                    traffic_data.append(flow_dict)
+                except Exception as e:
+                    logger.error(f"Error processing flow: {e}")
+                    continue
+            
             return [types.TextContent(
                 type="text",
-                text=f"Traffic flows: {all_traffic}"
+                text=json.dumps({"traffic_flows": traffic_data}, indent=2)
             )]
         except Exception as e:
             error_msg = f"Failed in PCE operation: {str(e)}"
             logger.error(error_msg, exc_info=True)
             return [types.TextContent(
                 type="text",
-                text=f"Error: {error_msg}"
+                text=json.dumps({"error": error_msg})
             )]
-        raise ValueError("Missing arguments")
     elif name == "get-traffic-flows-summary":
-        logger.debug(f"Getting traffic flows summary with start_date: {arguments['start_date']} and end_date: {arguments['end_date']}") 
+        logger.debug("=" * 80)
+        logger.debug("GET TRAFFIC FLOWS SUMMARY CALLED")
+        logger.debug(f"Arguments received: {json.dumps(arguments, indent=2)}")
+        logger.debug(f"Start Date: {arguments.get('start_date')}")
+        logger.debug(f"End Date: {arguments.get('end_date')}")
+        logger.debug(f"Include Sources: {arguments.get('include_sources', [])}")
+        logger.debug(f"Exclude Sources: {arguments.get('exclude_sources', [])}")
+        logger.debug(f"Include Destinations: {arguments.get('include_destinations', [])}")
+        logger.debug(f"Exclude Destinations: {arguments.get('exclude_destinations', [])}")
+        logger.debug(f"Include Services: {arguments.get('include_services', [])}")
+        logger.debug(f"Exclude Services: {arguments.get('exclude_services', [])}")
+        logger.debug(f"Policy Decisions: {arguments.get('policy_decisions', [])}")
+        logger.debug(f"Exclude Workloads from IP List: {arguments.get('exclude_workloads_from_ip_list_query', True)}")
+        logger.debug(f"Max Results: {arguments.get('max_results', 100000)}")
+        logger.debug(f"Query Name: {arguments.get('query_name')}")
+        logger.debug("=" * 80)
+
         try:
             pce = PolicyComputeEngine(PCE_HOST, port=PCE_PORT, org_id=PCE_ORG_ID)
             pce.set_credentials(API_KEY, API_SECRET)
@@ -590,27 +775,164 @@ async def handle_call_tool(
             query = TrafficQuery.build(
                 start_date=arguments['start_date'],
                 end_date=arguments['end_date'],
-                max_results=10000
+                include_sources=arguments.get('include_sources', [[]]),
+                exclude_sources=arguments.get('exclude_sources', []),
+                include_destinations=arguments.get('include_destinations', [[]]),
+                exclude_destinations=arguments.get('exclude_destinations', []),
+                include_services=arguments.get('include_services', []),
+                exclude_services=arguments.get('exclude_services', []),
+                policy_decisions=arguments.get('policy_decisions', []),
+                exclude_workloads_from_ip_list_query=arguments.get('exclude_workloads_from_ip_list_query', True),
+                max_results=arguments.get('max_results', 100000),
+                query_name=arguments.get('query_name', 'mcp-traffic-summary')
             )
 
             all_traffic = pce.get_traffic_flows_async(
-                query_name='all-traffic',
+                query_name=arguments.get('query_name', 'mcp-traffic-summary'),
                 traffic_query=query
             )
 
             df = to_dataframe(all_traffic)
             summary = summarize_traffic(df)
+            
+            # Ensure the summary is a list of strings
+            if isinstance(summary, str):
+                summary_lines = summary.split('\n')
+            else:
+                summary_lines = [str(line) for line in summary]
 
             return [types.TextContent(
                 type="text",
-                text=f"Traffic flows summary: {summary}"
+                text=json.dumps({"summary": summary_lines}, indent=2)
             )]
         except Exception as e:
             error_msg = f"Failed in PCE operation: {str(e)}"
             logger.error(error_msg, exc_info=True)
             return [types.TextContent(
                 type="text",
-                text=f"Error: {error_msg}"
+                text=json.dumps({"error": error_msg})
+            )]
+    elif name == "get-rulesets":
+        logger.debug("=" * 80)
+        logger.debug("GET RULESETS CALLED")
+        logger.debug(f"Arguments received: {json.dumps(arguments, indent=2)}")
+        logger.debug(f"Name filter: {arguments.get('name')}")
+        logger.debug(f"Enabled filter: {arguments.get('enabled')}")
+        logger.debug("=" * 80)
+
+        try:
+            pce = PolicyComputeEngine(PCE_HOST, port=PCE_PORT, org_id=PCE_ORG_ID)
+            pce.set_credentials(API_KEY, API_SECRET)
+
+            # Prepare filter parameters
+            params = {}
+            if arguments.get('name'):
+                params['name'] = arguments['name']
+            if arguments.get('enabled') is not None:
+                params['enabled'] = arguments['enabled']
+
+            rulesets = pce.rule_sets.get_all()
+            
+            # Convert rulesets to serializable format
+            ruleset_data = []
+            for ruleset in rulesets:
+                rules = []
+                for rule in ruleset.rules:
+                    rule_dict = {
+                        'enabled': rule.enabled,
+                        'description': rule.description,
+                        'resolve_labels_as': str(rule.resolve_labels_as) if rule.resolve_labels_as else None,
+                        'consumers': [str(consumer) for consumer in rule.consumers] if rule.consumers else [],
+                        'providers': [str(provider) for provider in rule.providers] if rule.providers else [],
+                        'ingress_services': [str(service) for service in rule.ingress_services] if rule.ingress_services else []
+                    }
+                    rules.append(rule_dict)
+
+                ruleset_dict = {
+                    'href': ruleset.href,
+                    'name': ruleset.name,
+                    'enabled': ruleset.enabled,
+                    'description': ruleset.description,
+                    'scopes': [str(scope) for scope in ruleset.scopes] if ruleset.scopes else [],
+                    'rules': rules
+                }
+                ruleset_data.append(ruleset_dict)
+
+            return [types.TextContent(
+                type="text",
+                text=json.dumps({
+                    "rulesets": ruleset_data,
+                    "total_count": len(ruleset_data)
+                }, indent=2)
+            )]
+
+        except Exception as e:
+            error_msg = f"Failed to get rulesets: {str(e)}"
+            logger.error(error_msg, exc_info=True)
+            return [types.TextContent(
+                type="text",
+                text=json.dumps({"error": error_msg})
+            )]
+    elif name == "get-iplists":
+        logger.debug("=" * 80)
+        logger.debug("GET IP LISTS CALLED")
+        logger.debug(f"Arguments received: {json.dumps(arguments, indent=2)}")
+        logger.debug(f"Name filter: {arguments.get('name')}")
+        logger.debug(f"Description filter: {arguments.get('description')}")
+        logger.debug(f"IP ranges filter: {arguments.get('ip_ranges', [])}")
+        logger.debug("=" * 80)
+
+        try:
+            pce = PolicyComputeEngine(PCE_HOST, port=PCE_PORT, org_id=PCE_ORG_ID)
+            pce.set_credentials(API_KEY, API_SECRET)
+
+            # Prepare filter parameters
+            params = {}
+            if arguments.get('name'):
+                params['name'] = arguments['name']
+            if arguments.get('description'):
+                params['description'] = arguments['description']
+
+            ip_lists = pce.ip_lists.get()
+            
+            # Convert IP lists to serializable format
+            iplist_data = []
+            for iplist in ip_lists:
+                iplist_dict = {
+                    'href': iplist.href,
+                    'name': iplist.name,
+                    'description': iplist.description,
+                    'ip_ranges': [str(ip_range) for ip_range in iplist.ip_ranges] if iplist.ip_ranges else [],
+                    'fqdns': iplist.fqdns if hasattr(iplist, 'fqdns') else [],
+                    'created_at': str(iplist.created_at) if hasattr(iplist, 'created_at') else None,
+                    'updated_at': str(iplist.updated_at) if hasattr(iplist, 'updated_at') else None,
+                    'deleted_at': str(iplist.deleted_at) if hasattr(iplist, 'deleted_at') else None,
+                    'created_by': str(iplist.created_by) if hasattr(iplist, 'created_by') else None,
+                    'updated_by': str(iplist.updated_by) if hasattr(iplist, 'updated_by') else None,
+                    'deleted_by': str(iplist.deleted_by) if hasattr(iplist, 'deleted_by') else None
+                }
+                
+                # Apply IP ranges filter if provided
+                if arguments.get('ip_ranges'):
+                    if any(ip_range in iplist_dict['ip_ranges'] for ip_range in arguments['ip_ranges']):
+                        iplist_data.append(iplist_dict)
+                else:
+                    iplist_data.append(iplist_dict)
+
+            return [types.TextContent(
+                type="text",
+                text=json.dumps({
+                    "ip_lists": iplist_data,
+                    "total_count": len(iplist_data)
+                }, indent=2)
+            )]
+
+        except Exception as e:
+            error_msg = f"Failed to get IP lists: {str(e)}"
+            logger.error(error_msg, exc_info=True)
+            return [types.TextContent(
+                type="text",
+                text=json.dumps({"error": error_msg})
             )]
 
     note_name = arguments.get("name")
