@@ -413,6 +413,34 @@ async def handle_list_tools() -> list[types.Tool]:
                     }
                 }
             }
+        ),
+        types.Tool(
+            name="get-events",
+            description="Get events from the PCE",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "event_type": {
+                        "type": "string",
+                        "description": "Filter by event type (e.g., 'system_task.expire_service_account_api_keys')"
+                    },
+                    "severity": {
+                        "type": "string",
+                        "enum": ["emerg", "alert", "crit", "err", "warning", "notice", "info", "debug"],
+                        "description": "Filter by event severity"
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": ["success", "failure"],
+                        "description": "Filter by event status"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "description": "Maximum number of events to return",
+                        "default": 100
+                    }
+                }
+            }
         )
     ]
 
@@ -929,6 +957,60 @@ async def handle_call_tool(
 
         except Exception as e:
             error_msg = f"Failed to get IP lists: {str(e)}"
+            logger.error(error_msg, exc_info=True)
+            return [types.TextContent(
+                type="text",
+                text=json.dumps({"error": error_msg})
+            )]
+    elif name == "get-events":
+        logger.debug("=" * 80)
+        logger.debug("GET EVENTS CALLED")
+        logger.debug(f"Arguments received: {json.dumps(arguments, indent=2)}")
+        logger.debug("=" * 80)
+
+        try:
+            pce = PolicyComputeEngine(PCE_HOST, port=PCE_PORT, org_id=PCE_ORG_ID)
+            pce.set_credentials(API_KEY, API_SECRET)
+
+            # Prepare filter parameters
+            params = {}
+            if arguments.get('event_type'):
+                params['event_type'] = arguments['event_type']
+            if arguments.get('severity'):
+                params['severity'] = arguments['severity']
+            if arguments.get('status'):
+                params['status'] = arguments['status']
+            if arguments.get('max_results'):
+                params['max_results'] = arguments['max_results']
+
+            events = pce.events.get(params=params)
+
+            # Convert events to serializable format
+            event_data = []
+            for event in events:
+                event_dict = {
+                    'href': event.href,
+                    'event_type': event.event_type,
+                    'timestamp': str(event.timestamp) if hasattr(event, 'timestamp') else None,
+                    'severity': event.severity if hasattr(event, 'severity') else None,
+                    'status': event.status if hasattr(event, 'status') else None,
+                    'created_by': str(event.created_by) if hasattr(event, 'created_by') else None,
+                    'notification_type': event.notification_type if hasattr(event, 'notification_type') else None,
+                    'info': event.info if hasattr(event, 'info') else None,
+                    'pce_fqdn': event.pce_fqdn if hasattr(event, 'pce_fqdn') else None
+                }
+                event_data.append(event_dict)
+
+            return [types.TextContent(
+                type="text",
+                text=json.dumps({
+                    "events": event_data,
+                    "total_count": len(event_data)
+                }, indent=2)
+            )]
+
+        except Exception as e:
+            error_msg = f"Failed to get events: {str(e)}"
             logger.error(error_msg, exc_info=True)
             return [types.TextContent(
                 type="text",

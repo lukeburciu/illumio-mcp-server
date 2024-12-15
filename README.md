@@ -112,6 +112,13 @@ Resources are not finished yet and i will look into that later.
 #### Connection Testing
 - `check-pce-connection` - Verify PCE connectivity and credentials
 
+#### Event Management
+- `get-events` - Get events from the PCE with optional filtering:
+  - Filter by event type (e.g., 'system_task.expire_service_account_api_keys')
+  - Filter by severity (emerg, alert, crit, err, warning, notice, info, debug)
+  - Filter by status (success, failure)
+  - Limit number of results returned
+
 ## Error Handling
 
 The server implements comprehensive error handling and logging:
