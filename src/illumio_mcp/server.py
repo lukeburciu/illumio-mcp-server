@@ -441,6 +441,19 @@ async def handle_list_tools() -> list[types.Tool]:
                     }
                 }
             }
+        ),
+        types.Tool(
+            name="create-ruleset",
+            description="Create a ruleset in the PCE with support for ring-fencing patterns",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "name": {"type": "string"},
+                    "description": {"type": "string"},
+                    "scopes": {"type": "array", "items": {"type": "array", "items": {"type": "string"}}}
+                },
+                "required": ["name"]
+            }
         )
     ]
 
@@ -1016,25 +1029,117 @@ async def handle_call_tool(
                 type="text",
                 text=json.dumps({"error": error_msg})
             )]
+    elif name == "create-ruleset":
+        logger.debug("=" * 80)
+        logger.debug("CREATE RULESET CALLED")
+        logger.debug(f"Arguments received: {json.dumps(arguments, indent=2)}")
+        logger.debug("=" * 80)
 
-    note_name = arguments.get("name")
-    content = arguments.get("content")
+        try:
+            logger.debug("Initializing PCE connection...")
+            pce = PolicyComputeEngine(PCE_HOST, port=PCE_PORT, org_id=PCE_ORG_ID)
+            pce.set_credentials(API_KEY, API_SECRET)
+            
+            # populate the label maps
+            label_href_map = {}
+            value_href_map = {}
+            for l in pce.labels.get(params={'max_results': 10000}):
+                label_href_map[l.href] = {"key": l.key, "value": l.value}
+                value_href_map["{}={}".format(l.key, l.value)] = l.href
 
-    if not note_name or not content:
-        raise ValueError("Missing name or content")
+            # Check if ruleset already exists
+            logger.debug(f"Checking if ruleset '{arguments['name']}' already exists...")
+            existing_rulesets = pce.rule_sets.get(params={"name": arguments["name"]})
+            if existing_rulesets:
+                error_msg = f"Ruleset with name '{arguments['name']}' already exists"
+                logger.error(error_msg)
+                return [types.TextContent(
+                    type="text",
+                    text=json.dumps({
+                        "error": error_msg,
+                        "existing_ruleset": {
+                            "href": existing_rulesets[0].href,
+                            "name": existing_rulesets[0].name
+                        }
+                    }, indent=2)
+                )]
 
-    # Update server state
-    notes[note_name] = content
+            # Create the ruleset
+            logger.debug(f"Instantiating ruleset object: {arguments['name']}")
+            ruleset = RuleSet(
+                name=arguments["name"],
+                description=arguments.get("description", "")
+            )
 
-    # Notify clients that resources have changed
-    await server.request_context.session.send_resource_list_changed()
+            # Handle scopes
+            label_sets = []
+            if arguments.get("scopes"):
+                # use the label_href_map and label_value_map to populate the label_sets,
+                # check what format the labels are coming in from claude, best format would be hrefs, but it's not guaranteed
+                # so we'll need to check the format and convert to hrefs if necessary
+                # sometimes they come as key=value, sometimes as hrefs, othertimes as key:value
+                # we'll need to check the format and convert to hrefs if necessary
+                # if they come as key=value, we'll need to split the key and value, and then check if the key and value exist in the label_href_map
+                # if they exist, we'll add the href to the label_sets
+                # if they don't exist, we'll create new labels
+                # if they come as hrefs, we'll just add them to the label_sets
+                # if they come as key:value, we'll split the key and value, and then check if the key and value exist in the label_href_map
+                # if they exist, we'll add the href to the label_sets
+                # if they don't exist, we'll create new labels
+                # if they come as a mix of hrefs and key=value, we'll need to convert the key=value to hrefs
+                # we'll need to check the format and convert to hrefs if necessary  
+                for scope in arguments["scopes"]:
+                    label_set = LabelSet(labels=[])
+                    for label in scope:
+                        if label in label_href_map:
+                            logger.debug(f"Found label href: {label_href_map[label]}")
+                            append_label = pce.labels.get_by_reference(label)
+                            logger.debug(f"Appending label: {append_label}")
+                            label_set.labels.append(append_label)
+                        elif label in value_href_map:
+                            logger.debug(f"Found label value: {value_href_map[label]}")
+                            append_label = pce.labels.get_by_reference(value_href_map[label])
+                            logger.debug(f"Appending label: {append_label}")
+                            label_set.labels.append(append_label)
+                        else:
+                            logger.debug(f"Found label href: {label}")
+                            append_label = pce.labels.get_by_reference(label)
+                            logger.debug(f"Appending label: {append_label}")
+                            label_set.labels.append(append_label)
+                    label_sets.append(label_set)
+                    logger.debug(f"Label set: {label_set}")
+            else:
+                # If no scopes provided, create a default scope with all workloads
+                logger.debug("No scopes provided, creating default scope with all workloads")
+                label_sets = [LabelSet(labels=[])]
 
-    return [
-        types.TextContent(
-            type="text",
-            text=f"Added note '{note_name}' with content: {content}",
-        )
-    ]
+            logger.debug(f"Final ruleset scopes count: {len(label_sets)}")
+            ruleset.scopes = label_sets
+
+            # Create the ruleset in PCE
+            logger.debug("Creating ruleset in PCE...")
+            logger.debug(f"Ruleset object scopes: {[str(ls.labels) for ls in ruleset.scopes]}")
+            ruleset = pce.rule_sets.create(ruleset)
+            logger.debug(f"Ruleset created with href: {ruleset.href}")
+
+            return [types.TextContent(
+                type="text",
+                text=json.dumps({
+                    "ruleset": {
+                        "href": ruleset.href,
+                        "name": ruleset.name,
+                        "description": ruleset.description
+                    }
+                }, indent=2)
+            )]
+
+        except Exception as e:
+            error_msg = f"Failed to create ruleset: {str(e)}"
+            logger.error(error_msg, exc_info=True)
+            return [types.TextContent(
+                type="text",
+                text=json.dumps({"error": error_msg})
+            )]
 
 def to_dataframe(flows):
     pce = PolicyComputeEngine(PCE_HOST, port=PCE_PORT, org_id=PCE_ORG_ID)
