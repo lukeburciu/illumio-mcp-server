@@ -605,6 +605,83 @@ async def handle_list_tools() -> list[types.Tool]:
                 "required": ["name", "ip_ranges"]
             }
         ),
+        types.Tool(
+            name="update-iplist",
+            description="Update an existing IP List in the PCE",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "href": {
+                        "type": "string",
+                        "description": "Href of the IP List to update"
+                    },
+                    "name": {
+                        "type": "string",
+                        "description": "Name of the IP List to update (alternative to href)"
+                    },
+                    "description": {
+                        "type": "string",
+                        "description": "New description for the IP List (optional)"
+                    },
+                    "ip_ranges": {
+                        "type": "array",
+                        "description": "New list of IP ranges",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "from_ip": {
+                                    "type": "string",
+                                    "description": "Starting IP address (IPv4 or IPv6)"
+                                },
+                                "to_ip": {
+                                    "type": "string",
+                                    "description": "Ending IP address (optional, for ranges)"
+                                },
+                                "description": {
+                                    "type": "string",
+                                    "description": "Description of this IP range (optional)"
+                                },
+                                "exclusion": {
+                                    "type": "boolean",
+                                    "description": "Whether this is an exclusion range",
+                                    "default": False
+                                }
+                            },
+                            "required": ["from_ip"]
+                        }
+                    },
+                    "fqdn": {
+                        "type": "string",
+                        "description": "New Fully Qualified Domain Name (optional)"
+                    }
+                },
+                "oneOf": [
+                    {"required": ["href"]},
+                    {"required": ["name"]}
+                ]
+            }
+        ),
+        types.Tool(
+            name="delete-iplist",
+            description="Delete an IP List from the PCE",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "href": {
+                        "type": "string",
+                        "description": "Href of the IP List to delete"
+                    },
+                    "name": {
+                        "type": "string",
+                        "description": "Name of the IP List to delete (alternative to href)"
+                    }
+                },
+                "oneOf": [
+                    {"required": ["href"]},
+                    {"required": ["name"]}
+                ]
+            }
+        ),
     ]
 
 @server.call_tool()
@@ -614,22 +691,23 @@ async def handle_call_tool(
     logger.debug(f"Handling tool call: {name} with arguments: {arguments}")
     
     if name == "get-workloads":
+        # harmonize the logging
+        logger.debug("=" * 80)  
+        logger.debug("GET WORKLOADS CALLED")
+        logger.debug(f"Arguments received: {json.dumps(arguments, indent=2)}")
+        logger.debug("=" * 80)
+
         logger.debug("Initializing PCE connection")
         try:
             logger.debug(f"PCE connection details - Host: {PCE_HOST}, Port: {PCE_PORT}, Org: {PCE_ORG_ID}")
             pce = PolicyComputeEngine(PCE_HOST, port=PCE_PORT, org_id=PCE_ORG_ID)
-            logger.debug("PCE instance created")
-            
-            logger.debug("Setting PCE credentials")
             pce.set_credentials(API_KEY, API_SECRET)
             logger.debug("Credentials set")
-            
-            logger.debug("Checking PCE connection")
             connection_status = pce.check_connection()
             logger.debug(f"PCE connection status: {connection_status}")
             
             logger.debug("Fetching workloads from PCE")
-            workloads = pce.workloads.get(params={"include": "labels"})
+            workloads = pce.workloads.get(params={"include": "labels", "max_results": 100000})
             logger.debug(f"Successfully retrieved {len(workloads)} workloads")
             return [types.TextContent(
                 type="text",
@@ -1084,7 +1162,9 @@ async def handle_call_tool(
             if arguments.get('description'):
                 params['description'] = arguments['description']
 
-            ip_lists = pce.ip_lists.get()
+            params['max_results'] = 100000
+
+            ip_lists = pce.ip_lists.get(params=params)
             
             # Convert IP lists to serializable format
             iplist_data = []
@@ -1109,6 +1189,8 @@ async def handle_call_tool(
                         iplist_data.append(iplist_dict)
                 else:
                     iplist_data.append(iplist_dict)
+
+            logger.debug(f"Found {len(iplist_data)} IP lists")
 
             return [types.TextContent(
                 type="text",
@@ -1610,6 +1692,159 @@ async def handle_call_tool(
                 type="text",
                 text=json.dumps({"error": error_msg}, indent=2)
             )]
+    elif name == "update-iplist":
+        logger.debug("=" * 80)
+        logger.debug("UPDATE IP LIST CALLED")
+        logger.debug(f"Arguments received: {json.dumps(arguments, indent=2)}")
+        logger.debug("=" * 80)
+
+        try:
+            logger.debug("Initializing PCE connection...")
+            pce = PolicyComputeEngine(PCE_HOST, port=PCE_PORT, org_id=PCE_ORG_ID)
+            pce.set_credentials(API_KEY, API_SECRET)
+
+            # Find the IP List
+            iplist = None
+            if "href" in arguments:
+                logger.debug(f"Looking up IP List by href: {arguments['href']}")
+                try:
+                    iplist = pce.ip_lists.get_by_reference(arguments['href'])
+                except Exception as e:
+                    logger.error(f"Failed to find IP List by href: {str(e)}")
+                    return [types.TextContent(
+                        type="text",
+                        text=json.dumps({"error": f"IP List not found: {str(e)}"}, indent=2)
+                    )]
+            else:
+                logger.debug(f"Looking up IP List by name: {arguments['name']}")
+                iplists = pce.ip_lists.get(params={"name": arguments["name"]})
+                if iplists:
+                    iplist = iplists[0]
+                else:
+                    return [types.TextContent(
+                        type="text",
+                        text=json.dumps({"error": f"IP List with name '{arguments['name']}' not found"}, indent=2)
+                    )]
+
+            logger.debug(f"Found IP List: {iplist.href}, {iplist.name}")
+
+            # Prepare update data
+            update_data = {}
+            if "description" in arguments:
+                update_data["description"] = arguments["description"]
+            if "fqdn" in arguments:
+                update_data["fqdn"] = arguments["fqdn"]
+            if "ip_ranges" in arguments:
+                ip_ranges = []
+                for range_def in arguments["ip_ranges"]:
+                    ip_range = {
+                        "from_ip": range_def["from_ip"],
+                        "exclusion": range_def.get("exclusion", False)
+                    }
+                    if "to_ip" in range_def:
+                        ip_range["to_ip"] = range_def["to_ip"]
+                    if "description" in range_def:
+                        ip_range["description"] = range_def["description"]
+                    ip_ranges.append(ip_range)
+                update_data["ip_ranges"] = ip_ranges
+
+            logger.debug(f"Updating IP List with data: {json.dumps(update_data, indent=2)}")
+            
+            # Update the IP List
+            pce.ip_lists.update(iplist.href, update_data)
+            
+            # Fetch the updated IP List to get the current state
+            updated_iplist = pce.ip_lists.get_by_reference(iplist.href)
+            
+            # Format response
+            response_data = {
+                "href": updated_iplist.href,
+                "name": updated_iplist.name,
+                "description": getattr(updated_iplist, "description", None),
+                "ip_ranges": []
+            }
+            
+            # Safely add IP ranges if they exist
+            if hasattr(updated_iplist, 'ip_ranges') and updated_iplist.ip_ranges:
+                for r in updated_iplist.ip_ranges:
+                    range_data = {"from_ip": r.from_ip}
+                    if hasattr(r, "to_ip"):
+                        range_data["to_ip"] = r.to_ip
+                    if hasattr(r, "description"):
+                        range_data["description"] = r.description
+                    if hasattr(r, "exclusion"):
+                        range_data["exclusion"] = r.exclusion
+                    response_data["ip_ranges"].append(range_data)
+            
+            # Add FQDN if it exists
+            if hasattr(updated_iplist, "fqdn"):
+                response_data["fqdn"] = updated_iplist.fqdn
+
+            return [types.TextContent(
+                type="text",
+                text=json.dumps(response_data, indent=2)
+            )]
+
+        except Exception as e:
+            error_msg = f"Failed to update IP List: {str(e)}"
+            logger.error(error_msg, exc_info=True)
+            return [types.TextContent(
+                type="text",
+                text=json.dumps({"error": error_msg}, indent=2)
+            )]
+    elif name == "delete-iplist":
+        logger.debug("=" * 80)
+        logger.debug("DELETE IP LIST CALLED")
+        logger.debug(f"Arguments received: {json.dumps(arguments, indent=2)}")
+        logger.debug("=" * 80)
+
+        try:
+            logger.debug("Initializing PCE connection...")
+            pce = PolicyComputeEngine(PCE_HOST, port=PCE_PORT, org_id=PCE_ORG_ID)
+            pce.set_credentials(API_KEY, API_SECRET)
+
+            # Find the IP List
+            iplist = None
+            if "href" in arguments:
+                logger.debug(f"Looking up IP List by href: {arguments['href']}")
+                try:
+                    iplist = pce.ip_lists.get_by_reference(arguments['href'])
+                except Exception as e:
+                    logger.error(f"Failed to find IP List by href: {str(e)}")
+                    return [types.TextContent(
+                        type="text",
+                        text=json.dumps({"error": f"IP List not found: {str(e)}"}, indent=2)
+                    )]
+            else:
+                logger.debug(f"Looking up IP List by name: {arguments['name']}")
+                iplists = pce.ip_lists.get(params={"name": arguments["name"]})
+                if iplists:
+                    iplist = iplists[0]
+                else:
+                    return [types.TextContent(
+                        type="text",
+                        text=json.dumps({"error": f"IP List with name '{arguments['name']}' not found"}, indent=2)
+                    )]
+
+            # Delete the IP List
+            logger.debug(f"Deleting IP List: {iplist.href}")
+            pce.ip_lists.delete(iplist.href)
+
+            return [types.TextContent(
+                type="text",
+                text=json.dumps({
+                    "message": f"Successfully deleted IP List: {iplist.name}",
+                    "href": iplist.href
+                }, indent=2)
+            )]
+
+        except Exception as e:
+            error_msg = f"Failed to delete IP List: {str(e)}"
+            logger.error(error_msg, exc_info=True)
+            return [types.TextContent(
+                type="text",
+                text=json.dumps({"error": error_msg}, indent=2)
+            )]
 
 def to_dataframe(flows):
     pce = PolicyComputeEngine(PCE_HOST, port=PCE_PORT, org_id=PCE_ORG_ID)
@@ -1670,19 +1905,32 @@ def to_dataframe(flows):
   
 def summarize_traffic(df):
     logger.debug(f"Summarizing traffic with dataframe: {df}")
-    group_columns = ['src_app', 'src_env', 'dst_app', 'dst_env', 'proto', 'port']
+    
+    # Define all possible group columns
+    potential_columns = ['src_app', 'src_env', 'dst_app', 'dst_env', 'proto', 'port']
+    
+    # Filter to only use columns that exist in the DataFrame
+    group_columns = [col for col in potential_columns if col in df.columns]
+    
+    if not group_columns:
+        logger.warning("No grouping columns found in DataFrame")
+        return "No traffic data available for summarization"
 
-    print(f"Group columns: {group_columns}")
-    print(f"DataFrame shape before grouping: {df.shape}")
-    print(f"DataFrame columns: {df.columns.tolist()}")
-    print(f"First few rows of DataFrame:\n{df.head()}")
+    if df.empty:
+        logger.warning("Empty DataFrame received")
+        return "No traffic data available for summarization"
+
+    logger.debug(f"Using group columns: {group_columns}")
+    logger.debug(f"DataFrame shape before grouping: {df.shape}")
+    logger.debug(f"DataFrame columns: {df.columns.tolist()}")
+    logger.debug(f"First few rows of DataFrame:\n{df.head()}")
 
     # Group by available columns
     summary = df.groupby(group_columns)['num_connections'].sum().reset_index()
         
-    print(f"Summary shape after grouping: {summary.shape}")
-    print(f"Summary columns: {summary.columns.tolist()}")
-    print(f"First few rows of summary:\n{summary.head()}")
+    logger.debug(f"Summary shape after grouping: {summary.shape}")
+    logger.debug(f"Summary columns: {summary.columns.tolist()}")
+    logger.debug(f"First few rows of summary:\n{summary.head()}")
 
     # Sort by number of connections in descending order
     summary = summary.sort_values('num_connections', ascending=False)
@@ -1690,13 +1938,31 @@ def summarize_traffic(df):
     # Convert to a more readable format
     summary_list = []
     for _, row in summary.iterrows():
-        src_info = f"{row['src_app']} ({row['src_env']})" if 'src_app' in row else row['src_ip']
-        dst_info = f"{row['dst_app']} ({row['dst_env']})" if 'dst_app' in row else row['dst_ip']
+        # Build source and destination info based on available columns
+        src_info = []
+        if 'src_app' in row:
+            src_info.append(row['src_app'])
+        if 'src_env' in row:
+            src_info.append(f"({row['src_env']})")
+        src_str = " ".join(src_info) if src_info else "Unknown Source"
 
-        if src_info != dst_info:
+        dst_info = []
+        if 'dst_app' in row:
+            dst_info.append(row['dst_app'])
+        if 'dst_env' in row:
+            dst_info.append(f"({row['dst_env']})")
+        dst_str = " ".join(dst_info) if dst_info else "Unknown Destination"
+
+        if src_str != dst_str:
+            port_info = f"port {row['port']}" if 'port' in row else "unknown port"
+            proto_info = f"proto {row['proto']}" if 'proto' in row else ""
             summary_list.append(
-                f"From {src_info} to {dst_info} on port {row['port']}: {row['num_connections']} connections"
+                f"From {src_str} to {dst_str} on {port_info} {proto_info}: {row['num_connections']} connections"
             )
+    
+    if not summary_list:
+        return "No traffic patterns to summarize"
+        
     return "\n".join(summary_list)
 
 async def main():
