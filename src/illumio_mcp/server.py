@@ -12,6 +12,7 @@ import sys
 from datetime import datetime, timedelta
 from illumio import *
 import pandas as pd
+from json import JSONEncoder
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -314,22 +315,22 @@ async def handle_list_tools() -> list[types.Tool]:
                     "include_sources": {
                         "type": "array",
                         "items": {"type": "string"},
-                        "description": "Sources to include (label/IP list/workload HREFs, FQDNs, IPs)"
+                        "description": "Sources to include (label/IP list/workload HREFs, FQDNs, IPs). Best case these are hrefs like /orgs/1/labels/57 or similar. Other way is app=env as an example (label key and value)"
                     },
                     "exclude_sources": {
                         "type": "array",
                         "items": {"type": "string"},
-                        "description": "Sources to exclude (label/IP list/workload HREFs, FQDNs, IPs)"
+                        "description": "Sources to exclude (label/IP list/workload HREFs, FQDNs, IPs). Best case these are hrefs like /orgs/1/labels/57 or similar. Other way is app=env as an example (label key and value)"
                     },
                     "include_destinations": {
                         "type": "array",
                         "items": {"type": "string"},
-                        "description": "Destinations to include (label/IP list/workload HREFs, FQDNs, IPs)"
+                        "description": "Destinations to include (label/IP list/workload HREFs, FQDNs, IPs). Best case these are hrefs like /orgs/1/labels/57 or similar. Other way is app=env as an example (label key and value)"
                     },
                     "exclude_destinations": {
                         "type": "array",
                         "items": {"type": "string"},
-                        "description": "Destinations to exclude (label/IP list/workload HREFs, FQDNs, IPs)"
+                        "description": "Destinations to exclude (label/IP list/workload HREFs, FQDNs, IPs). Best case these are hrefs like /orgs/1/labels/57 or similar. Other way is app=env as an example (label key and value)"
                     },
                     "include_services": {
                         "type": "array",
@@ -448,13 +449,162 @@ async def handle_list_tools() -> list[types.Tool]:
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "name": {"type": "string"},
-                    "description": {"type": "string"},
-                    "scopes": {"type": "array", "items": {"type": "array", "items": {"type": "string"}}}
+                    "name": {"type": "string", "description": "Name of the ruleset (e.g., 'RS-ELK'). Must be unique in the PCE."},
+                    "description": {"type": "string", "description": "Description of the ruleset (optional)"},
+                    "scopes": {
+                        "type": "array",
+                        "items": {
+                            "type": "array",
+                            "items": {"type": "string"}
+                        },
+                        "description": "List of label combinations that define scopes. Each scope is an array of label values. This need to be label references like /orgs/1/labels/57 or similar. Get the label href from the get-labels tool."
+                    },
+                    "rules": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "providers": {
+                                    "type": "array",
+                                    "items": {"type": "string"},
+                                    "description": "Array of provider labels, 'ams' for all workloads, or IP list references (e.g., 'iplist:Any (0.0.0.0/0)')"
+                                },
+                                "consumers": {
+                                    "type": "array",
+                                    "items": {"type": "string"},
+                                    "description": "Array of consumer labels, 'ams' for all workloads, or IP list references (e.g., 'iplist:Any (0.0.0.0/0)')"
+                                },
+                                "ingress_services": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "object",
+                                        "properties": {
+                                            "port": {"type": "integer"},
+                                            "proto": {"type": "string"}
+                                        },
+                                        "required": ["port", "proto"]
+                                    }
+                                },
+                                "unscoped_consumers": {
+                                    "type": "boolean",
+                                    "description": "Whether to allow unscoped consumers (extra-scope rule)",
+                                    "default": False
+                                }
+                            },
+                            "required": ["providers", "consumers", "ingress_services"]
+                        }
+                    }
                 },
-                "required": ["name"]
+                "required": ["name", "scopes"]
             }
-        )
+        ),
+        types.Tool(
+            name="get-services",
+            description="Get services from the PCE with optional filtering",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "description": "Filter services by name"
+                    },
+                    "description": {
+                        "type": "string",
+                        "description": "Filter services by description"
+                    },
+                    "port": {
+                        "type": "integer",
+                        "description": "Filter services by port number"
+                    },
+                    "proto": {
+                        "type": "string",
+                        "description": "Filter services by protocol (e.g., tcp, udp)"
+                    },
+                    "process_name": {
+                        "type": "string",
+                        "description": "Filter services by process name"
+                    }
+                }
+            }
+        ),
+        types.Tool(
+            name="update-label",
+            description="Update an existing label in the PCE",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "href": {
+                        "type": "string",
+                        "description": "Label href (e.g., /orgs/1/labels/42). Either href or both key and value must be provided to identify the label."
+                    },
+                    "key": {
+                        "type": "string",
+                        "description": "Label type (e.g., role, app, env, loc)"
+                    },
+                    "value": {
+                        "type": "string",
+                        "description": "Current value of the label"
+                    },
+                    "new_value": {
+                        "type": "string",
+                        "description": "New value for the label"
+                    }
+                },
+                "oneOf": [
+                    {"required": ["href", "key", "new_value"]},
+                    {"required": ["key", "value", "new_value"]}
+                ]
+            }
+        ),
+        types.Tool(
+            name="create-iplist",
+            description="Create a new IP List in the PCE",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "description": "Name of the IP List"
+                    },
+                    "description": {
+                        "type": "string",
+                        "description": "Description of the IP List"
+                    },
+                    "ip_ranges": {
+                        "type": "array",
+                        "description": "List of IP ranges to include",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "from_ip": {
+                                    "type": "string",
+                                    "description": "Starting IP address (IPv4 or IPv6)"
+                                },
+                                "to_ip": {
+                                    "type": "string",
+                                    "description": "Ending IP address (optional, for ranges)"
+                                },
+                                "description": {
+                                    "type": "string",
+                                    "description": "Description of this IP range (optional)"
+                                },
+                                "exclusion": {
+                                    "type": "boolean",
+                                    "description": "Whether this is an exclusion range",
+                                    "default": False
+                                }
+                            },
+                            "required": ["from_ip"]
+                        }
+                    },
+                    "fqdn": {
+                        "type": "string",
+                        "description": "Fully Qualified Domain Name (optional)"
+                    }
+                },
+                "required": ["name", "ip_ranges"]
+            }
+        ),
     ]
 
 @server.call_tool()
@@ -1074,38 +1224,32 @@ async def handle_call_tool(
             # Handle scopes
             label_sets = []
             if arguments.get("scopes"):
-                # use the label_href_map and label_value_map to populate the label_sets,
-                # check what format the labels are coming in from claude, best format would be hrefs, but it's not guaranteed
-                # so we'll need to check the format and convert to hrefs if necessary
-                # sometimes they come as key=value, sometimes as hrefs, othertimes as key:value
-                # we'll need to check the format and convert to hrefs if necessary
-                # if they come as key=value, we'll need to split the key and value, and then check if the key and value exist in the label_href_map
-                # if they exist, we'll add the href to the label_sets
-                # if they don't exist, we'll create new labels
-                # if they come as hrefs, we'll just add them to the label_sets
-                # if they come as key:value, we'll split the key and value, and then check if the key and value exist in the label_href_map
-                # if they exist, we'll add the href to the label_sets
-                # if they don't exist, we'll create new labels
-                # if they come as a mix of hrefs and key=value, we'll need to convert the key=value to hrefs
-                # we'll need to check the format and convert to hrefs if necessary  
+                logger.debug(f"Processing scopes: {json.dumps(arguments['scopes'], indent=2)}")
+                
                 for scope in arguments["scopes"]:
                     label_set = LabelSet(labels=[])
                     for label in scope:
-                        if label in label_href_map:
-                            logger.debug(f"Found label href: {label_href_map[label]}")
-                            append_label = pce.labels.get_by_reference(label)
+                        logger.debug(f"Processing label: {label}")
+                        if isinstance(label, dict) and "href" in label:
+                            # Handle direct href references
+                            logger.debug(f"Found label with href: {label['href']}")
+                            append_label = pce.labels.get_by_reference(label["href"])
                             logger.debug(f"Appending label: {append_label}")
                             label_set.labels.append(append_label)
-                        elif label in value_href_map:
-                            logger.debug(f"Found label value: {value_href_map[label]}")
-                            append_label = pce.labels.get_by_reference(value_href_map[label])
+                        elif isinstance(label, str):
+                            # Handle string references (either href or label value)
+                            if label in value_href_map:
+                                logger.debug(f"Found label value: {value_href_map[label]}")
+                                append_label = pce.labels.get_by_reference(value_href_map[label])
+                            else:
+                                logger.debug(f"Assuming direct href: {label}")
+                                append_label = pce.labels.get_by_reference(label)
                             logger.debug(f"Appending label: {append_label}")
                             label_set.labels.append(append_label)
                         else:
-                            logger.debug(f"Found label href: {label}")
-                            append_label = pce.labels.get_by_reference(label)
-                            logger.debug(f"Appending label: {append_label}")
-                            label_set.labels.append(append_label)
+                            logger.warning(f"Unexpected label format: {label}")
+                            continue
+                            
                     label_sets.append(label_set)
                     logger.debug(f"Label set: {label_set}")
             else:
@@ -1122,13 +1266,95 @@ async def handle_call_tool(
             ruleset = pce.rule_sets.create(ruleset)
             logger.debug(f"Ruleset created with href: {ruleset.href}")
 
+            # Create rules if provided
+            created_rules = []
+            if arguments.get("rules"):
+                logger.debug(f"Processing rules: {json.dumps(arguments['rules'], indent=2)}")
+                
+                for rule_def in arguments["rules"]:
+                    logger.debug(f"Processing rule: {json.dumps(rule_def, indent=2)}")
+                    
+                    # Process providers
+                    providers = []
+                    for provider in rule_def["providers"]:
+                        if provider == "ams":
+                            providers.append(AMS)
+                        elif provider.startswith("iplist:"):
+                            # Extract IP list name and look it up
+                            ip_list_name = provider.split(":", 1)[1]
+                            logger.debug(f"Looking up IP list: {ip_list_name}")
+                            ip_lists = pce.ip_lists.get(params={"name": ip_list_name})
+                            if ip_lists:
+                                providers.append(ip_lists[0])
+                            else:
+                                logger.error(f"IP list not found: {ip_list_name}")
+                                return [types.TextContent(
+                                    type="text",
+                                    text=json.dumps({"error": f"IP list not found: {ip_list_name}"})
+                                )]
+                        elif provider in value_href_map:
+                            providers.append(pce.labels.get_by_reference(value_href_map[provider]))
+                        else:
+                            providers.append(pce.labels.get_by_reference(provider))
+                    
+                    # Process consumers
+                    consumers = []
+                    for consumer in rule_def["consumers"]:
+                        if consumer == "ams":
+                            consumers.append(AMS)
+                        elif consumer.startswith("iplist:"):
+                            # Extract IP list name and look it up
+                            ip_list_name = consumer.split(":", 1)[1]
+                            logger.debug(f"Looking up IP list: {ip_list_name}")
+                            ip_lists = pce.ip_lists.get(params={"name": ip_list_name})
+                            if ip_lists:
+                                consumers.append(ip_lists[0])
+                            else:
+                                logger.error(f"IP list not found: {ip_list_name}")
+                                return [types.TextContent(
+                                    type="text",
+                                    text=json.dumps({"error": f"IP list not found: {ip_list_name}"})
+                                )]
+                        elif consumer in value_href_map:
+                            consumers.append(pce.labels.get_by_reference(value_href_map[consumer]))
+                        else:
+                            consumers.append(pce.labels.get_by_reference(consumer))
+                    
+                    # Create ingress services
+                    ingress_services = []
+                    for svc in rule_def["ingress_services"]:
+                        service_port = ServicePort(
+                            port=svc["port"],
+                            proto=svc["proto"]
+                        )
+                        ingress_services.append(service_port)
+                    
+                    # Build and create the rule
+                    rule = Rule.build(
+                        providers=providers,
+                        consumers=consumers,
+                        ingress_services=ingress_services,
+                        unscoped_consumers=rule_def.get("unscoped_consumers", False)
+                    )
+                    
+                    created_rule = pce.rules.create(rule, parent=ruleset)
+                    created_rules.append({
+                        "href": created_rule.href,
+                        "providers": [str(p) for p in providers],
+                        "consumers": [str(c) for c in consumers],
+                        "services": [f"{s.port}/{s.proto}" for s in ingress_services],
+                        "unscoped_consumers": rule_def.get("unscoped_consumers", False)
+                    })
+            
+            # Update the response to include rules
             return [types.TextContent(
                 type="text",
                 text=json.dumps({
                     "ruleset": {
                         "href": ruleset.href,
                         "name": ruleset.name,
-                        "description": ruleset.description
+                        "description": ruleset.description,
+                        "rules": created_rules
                     }
                 }, indent=2)
             )]
@@ -1139,6 +1365,250 @@ async def handle_call_tool(
             return [types.TextContent(
                 type="text",
                 text=json.dumps({"error": error_msg})
+            )]
+    elif name == "get-services":
+        logger.debug("=" * 80)
+        logger.debug("GET SERVICES CALLED")
+        logger.debug(f"Arguments received: {json.dumps(arguments, indent=2)}")
+        logger.debug("=" * 80)
+
+        try:
+            logger.debug("Initializing PCE connection...")
+            pce = PolicyComputeEngine(PCE_HOST, port=PCE_PORT, org_id=PCE_ORG_ID)
+            pce.set_credentials(API_KEY, API_SECRET)
+
+            # Prepare filter parameters
+            params = {}
+            if arguments.get('name'):
+                params['name'] = arguments['name']
+            if arguments.get('description'):
+                params['description'] = arguments['description']
+            if arguments.get('port'):
+                params['port'] = arguments['port']
+            if arguments.get('proto'):
+                params['proto'] = arguments['proto']
+            if arguments.get('process_name'):
+                params['process_name'] = arguments['process_name']
+            
+            logger.debug(f"Querying services with params: {json.dumps(params, indent=2)}")
+            services = pce.services.get(params=params)
+            logger.debug(f"Found {len(services)} services")
+            
+            # Convert services to serializable format
+            service_data = []
+            for service in services:
+                logger.debug(f"Processing service: {service.name} ({service.href})")
+                service_dict = {
+                    'href': service.href,
+                    'name': service.name,
+                    'description': service.description if hasattr(service, 'description') else None,
+                    'process_name': service.process_name if hasattr(service, 'process_name') else None,
+                    'service_ports': []
+                }
+                
+                # Add service ports - check both possible attribute names
+                ports = []
+                if hasattr(service, 'service_ports'):
+                    # logger.debug(f"Found service_ports attribute for {service.name}")
+                    ports = service.service_ports or []  # Handle None case
+                elif hasattr(service, 'ports'):
+                    # logger.debug(f"Found ports attribute for {service.name}")
+                    ports = service.ports or []  # Handle None case
+                
+                logger.debug(f"Processing {len(ports)} ports for service {service.name}")
+                for port in ports:
+                    try:
+                        port_dict = {
+                            'port': port.port,
+                            'proto': port.proto
+                        }
+                        # Only add to_port if it exists and is different from port
+                        if hasattr(port, 'to_port') and port.to_port is not None:
+                            port_dict['to_port'] = port.to_port
+                        service_dict['service_ports'].append(port_dict)
+                        logger.debug(f"Added port {port.port}/{port.proto} to service {service.name}")
+                    except AttributeError as e:
+                        logger.warning(f"Error processing port {port} for service {service.name}: {e}")
+                        continue
+
+                # Add windows services if present
+                if hasattr(service, 'windows_services'):
+                    logger.debug(f"Found windows_services for {service.name}")
+                    service_dict['windows_services'] = service.windows_services
+
+                service_data.append(service_dict)
+                logger.debug(f"Completed processing service: {service.name}")
+
+            logger.debug(f"Service data: {json.dumps(service_data, indent=2)}")
+            logger.debug(f"Successfully processed {len(service_data)} services")
+            return [types.TextContent(
+                type="text",
+                text=json.dumps({
+                    "services": service_data,
+                    "total_count": len(service_data)
+                }, indent=2)
+            )]
+
+        except Exception as e:
+            error_msg = f"Failed to get services: {str(e)}"
+            logger.error(error_msg, exc_info=True)
+            return [types.TextContent(
+                type="text",
+                text=json.dumps({"error": error_msg})
+            )]
+    elif name == "update-label":
+        logger.debug("Initializing PCE connection")
+        try:
+            pce = PolicyComputeEngine(PCE_HOST, port=PCE_PORT, org_id=PCE_ORG_ID)
+            pce.set_credentials(API_KEY, API_SECRET)
+            
+            href = arguments.get("href")
+            key = arguments.get("key")
+            value = arguments.get("value")
+            new_value = arguments.get("new_value")
+            
+            # First, find the label
+            label = None
+            if href:
+                logger.debug(f"Looking up label by href: {href}")
+                try:
+                    label = pce.labels.get_by_reference(href)
+                    logger.debug(f"Found label by href: {label}")
+                except Exception as e:
+                    logger.error(f"Failed to find label by href {href}: {str(e)}")
+                    return [types.TextContent(
+                        type="text",
+                        text=f"Error: Label with href {href} not found"
+                    )]
+            else:
+                logger.debug(f"Looking up label by key={key}, value={value}")
+                labels = pce.labels.get(params={"key": key, "value": value})
+                if labels and len(labels) > 0:
+                    label = labels[0]  # Get the first matching label
+                    logger.debug(f"Found label by key-value: {label}")
+                else:
+                    logger.error(f"No label found with key={key}, value={value}")
+                    return [types.TextContent(
+                        type="text",
+                        text=f"Error: No label found with key={key}, value={value}"
+                    )]
+            
+            if label:
+                logger.debug(f"Updating label {label.href} with new_value={new_value}")
+                # Prepare the update payload - only include the new value
+                update_data = {
+                    "value": new_value
+                }
+                
+                # Update the label
+                updated_label = pce.labels.update(label.href, update_data)
+                logger.debug(f"Label updated successfully: {updated_label}")
+                
+                return [types.TextContent(
+                    type="text",
+                    text=f"Successfully updated label: {updated_label}"
+                )]
+            else:
+                error_msg = "Failed to find label to update"
+                logger.error(error_msg)
+                return [types.TextContent(
+                    type="text",
+                    text=f"Error: {error_msg}"
+                )]
+                
+        except Exception as e:
+            error_msg = f"Failed to update label: {str(e)}"
+            logger.error(error_msg, exc_info=True)
+            return [types.TextContent(
+                type="text",
+                text=f"Error: {error_msg}"
+            )]
+    elif name == "create-iplist":
+        logger.debug("=" * 80)
+        logger.debug("CREATE IP LIST CALLED")
+        logger.debug(f"Arguments received: {json.dumps(arguments, indent=2)}")
+        logger.debug("=" * 80)
+
+        try:
+            logger.debug("Initializing PCE connection...")
+            pce = PolicyComputeEngine(PCE_HOST, port=PCE_PORT, org_id=PCE_ORG_ID)
+            pce.set_credentials(API_KEY, API_SECRET)
+
+            # Check if IP List already exists
+            logger.debug(f"Checking if IP List '{arguments['name']}' already exists...")
+            existing_iplists = pce.ip_lists.get(params={"name": arguments["name"]})
+            if existing_iplists:
+                error_msg = f"IP List with name '{arguments['name']}' already exists"
+                logger.error(error_msg)
+                return [types.TextContent(
+                    type="text",
+                    text=json.dumps({
+                        "error": error_msg,
+                        "existing_iplist": {
+                            "href": existing_iplists[0].href,
+                            "name": existing_iplists[0].name
+                        }
+                    }, indent=2)
+                )]
+
+            # Create IP ranges
+            ip_ranges = []
+            for range_def in arguments["ip_ranges"]:
+                ip_range = {
+                    "from_ip": range_def["from_ip"],
+                    "exclusion": range_def.get("exclusion", False)
+                }
+                
+                # Add optional fields if present
+                if "to_ip" in range_def:
+                    ip_range["to_ip"] = range_def["to_ip"]
+                if "description" in range_def:
+                    ip_range["description"] = range_def["description"]
+                
+                ip_ranges.append(ip_range)
+
+            # Create the IP List object
+            iplist_data = {
+                "name": arguments["name"],
+                "ip_ranges": ip_ranges
+            }
+
+            # Add optional fields if present
+            if "description" in arguments:
+                iplist_data["description"] = arguments["description"]
+            if "fqdn" in arguments:
+                iplist_data["fqdn"] = arguments["fqdn"]
+
+            logger.debug(f"Creating IP List with data: {json.dumps(iplist_data, indent=2)}")
+            iplist = pce.ip_lists.create(iplist_data)
+            
+            # Format response
+            response_data = {
+                "href": iplist.href,
+                "name": iplist.name,
+                "description": getattr(iplist, "description", None),
+                "ip_ranges": [
+                    {
+                        "from_ip": r.from_ip,
+                        "to_ip": getattr(r, "to_ip", None),
+                        "description": getattr(r, "description", None),
+                        "exclusion": getattr(r, "exclusion", False)
+                    } for r in iplist.ip_ranges
+                ],
+                "fqdn": getattr(iplist, "fqdn", None)
+            }
+
+            return [types.TextContent(
+                type="text",
+                text=json.dumps(response_data, indent=2)
+            )]
+
+        except Exception as e:
+            error_msg = f"Failed to create IP List: {str(e)}"
+            logger.error(error_msg, exc_info=True)
+            return [types.TextContent(
+                type="text",
+                text=json.dumps({"error": error_msg}, indent=2)
             )]
 
 def to_dataframe(flows):
@@ -1252,3 +1722,12 @@ logger.debug(f"PCE_PORT set: {PCE_PORT}")
 logger.debug(f"PCE_ORG_ID set: {PCE_ORG_ID}")
 logger.debug(f"API_KEY set: {API_KEY}")
 logger.debug(f"API_SECRET set: {bool(API_SECRET)}")
+
+class ServicePortEncoder(JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, ServicePort):
+            return {
+                'port': obj.port,
+                'protocol': obj.protocol
+            }
+        return super().default(obj)
