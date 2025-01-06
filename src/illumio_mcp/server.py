@@ -306,7 +306,7 @@ async def handle_list_tools() -> list[types.Tool]:
         ),
         types.Tool(
             name="get-traffic-flows-summary",
-            description="Get traffic flows from the PCE in a summarized text format",
+            description="Get traffic flows from the PCE in a summarized text format, this is a text format that is not a dataframe, it also is not json, the form is: 'From <source> to <destination> on <port> <proto>: <number of connections>'",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -682,6 +682,81 @@ async def handle_list_tools() -> list[types.Tool]:
                 ]
             }
         ),
+        types.Tool(
+            name="update-ruleset",
+            description="Update an existing ruleset in the PCE",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "href": {
+                        "type": "string",
+                        "description": "Href of the ruleset to update"
+                    },
+                    "name": {
+                        "type": "string",
+                        "description": "Name of the ruleset to update (alternative to href)"
+                    },
+                    "description": {
+                        "type": "string",
+                        "description": "New description for the ruleset"
+                    },
+                    "enabled": {
+                        "type": "boolean",
+                        "description": "Whether the ruleset is enabled"
+                    },
+                    "scopes": {
+                        "type": "array",
+                        "description": "New scopes for the ruleset",
+                        "items": {
+                            "type": "array",
+                            "items": {
+                                "oneOf": [
+                                    {
+                                        "type": "string",
+                                        "description": "Label href or key=value string"
+                                    },
+                                    {
+                                        "type": "object",
+                                        "properties": {
+                                            "href": {
+                                                "type": "string",
+                                                "description": "Label href"
+                                            }
+                                        },
+                                        "required": ["href"]
+                                    }
+                                ]
+                            }
+                        }
+                    }
+                },
+                "oneOf": [
+                    {"required": ["href"]},
+                    {"required": ["name"]}
+                ]
+            }
+        ),
+        types.Tool(
+            name="delete-ruleset",
+            description="Delete a ruleset from the PCE",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "href": {
+                        "type": "string",
+                        "description": "Href of the ruleset to delete"
+                    },
+                    "name": {
+                        "type": "string",
+                        "description": "Name of the ruleset to delete (alternative to href)"
+                    }
+                },
+                "oneOf": [
+                    {"required": ["href"]},
+                    {"required": ["name"]}
+                ]
+            }
+        ),
     ]
 
 @server.call_tool()
@@ -1007,10 +1082,12 @@ async def handle_call_tool(
                 except Exception as e:
                     logger.error(f"Error processing flow: {e}")
                     continue
-            
+
+            df = to_dataframe(all_traffic)
+            # return dataframe df in json format
             return [types.TextContent(
                 type="text",
-                text=json.dumps({"traffic_flows": traffic_data}, indent=2)
+                text=df.to_json(orient="records")
             )]
         except Exception as e:
             error_msg = f"Failed in PCE operation: {str(e)}"
@@ -1840,6 +1917,172 @@ async def handle_call_tool(
 
         except Exception as e:
             error_msg = f"Failed to delete IP List: {str(e)}"
+            logger.error(error_msg, exc_info=True)
+            return [types.TextContent(
+                type="text",
+                text=json.dumps({"error": error_msg}, indent=2)
+            )]
+    elif name == "update-ruleset":
+        logger.debug("=" * 80)
+        logger.debug("UPDATE RULESET CALLED")
+        logger.debug(f"Arguments received: {json.dumps(arguments, indent=2)}")
+        logger.debug("=" * 80)
+
+        try:
+            logger.debug("Initializing PCE connection...")
+            pce = PolicyComputeEngine(PCE_HOST, port=PCE_PORT, org_id=PCE_ORG_ID)
+            pce.set_credentials(API_KEY, API_SECRET)
+
+            # Find the ruleset
+            ruleset = None
+            if "href" in arguments:
+                logger.debug(f"Looking up ruleset by href: {arguments['href']}")
+                try:
+                    ruleset = pce.rule_sets.get_by_reference(arguments['href'])
+                except Exception as e:
+                    logger.error(f"Failed to find ruleset by href: {str(e)}")
+                    return [types.TextContent(
+                        type="text",
+                        text=json.dumps({"error": f"Ruleset not found: {str(e)}"}, indent=2)
+                    )]
+            else:
+                logger.debug(f"Looking up ruleset by name: {arguments['name']}")
+                rulesets = pce.rule_sets.get(params={"name": arguments["name"]})
+                if rulesets:
+                    ruleset = rulesets[0]
+                else:
+                    return [types.TextContent(
+                        type="text",
+                        text=json.dumps({"error": f"Ruleset with name '{arguments['name']}' not found"}, indent=2)
+                    )]
+
+            # Prepare update data
+            update_data = {}
+            if "description" in arguments:
+                update_data["description"] = arguments["description"]
+            if "enabled" in arguments:
+                update_data["enabled"] = arguments["enabled"]
+
+            # Handle scopes if provided
+            if "scopes" in arguments:
+                logger.debug(f"Processing scopes: {json.dumps(arguments['scopes'], indent=2)}")
+                label_sets = []
+                
+                for scope in arguments["scopes"]:
+                    label_set = LabelSet(labels=[])
+                    for label in scope:
+                        logger.debug(f"Processing label: {label}")
+                        if isinstance(label, dict) and "href" in label:
+                            # Handle direct href references
+                            logger.debug(f"Found label with href: {label['href']}")
+                            append_label = pce.labels.get_by_reference(label["href"])
+                            logger.debug(f"Appending label: {append_label}")
+                            label_set.labels.append(append_label)
+                        elif isinstance(label, str):
+                            # Handle string references (either href or label value)
+                            if "=" in label:  # key=value format
+                                key, value = label.split("=", 1)
+                                labels = pce.labels.get(params={"key": key, "value": value})
+                                if labels:
+                                    append_label = labels[0]
+                                    logger.debug(f"Appending label: {append_label}")
+                                    label_set.labels.append(append_label)
+                            else:  # direct href
+                                append_label = pce.labels.get_by_reference(label)
+                                logger.debug(f"Appending label: {append_label}")
+                                label_set.labels.append(append_label)
+                    
+                    label_sets.append(label_set)
+                    logger.debug(f"Label set: {label_set}")
+                
+                update_data["scopes"] = label_sets
+
+            # Update the ruleset
+            logger.debug(f"Updating ruleset with data: {update_data}")
+            updated_ruleset = pce.rule_sets.update(ruleset.href, update_data)
+            
+            # Format response
+            response_data = {
+                "href": updated_ruleset.href,
+                "name": updated_ruleset.name,
+                "description": getattr(updated_ruleset, "description", None),
+                "enabled": getattr(updated_ruleset, "enabled", None),
+                "scopes": []
+            }
+
+            # Add scopes if they exist
+            if hasattr(updated_ruleset, "scopes"):
+                for scope in updated_ruleset.scopes:
+                    scope_labels = []
+                    for label in scope.labels:
+                        scope_labels.append({
+                            "href": label.href,
+                            "key": label.key,
+                            "value": label.value
+                        })
+                    response_data["scopes"].append(scope_labels)
+
+            return [types.TextContent(
+                type="text",
+                text=json.dumps(response_data, indent=2)
+            )]
+
+        except Exception as e:
+            error_msg = f"Failed to update ruleset: {str(e)}"
+            logger.error(error_msg, exc_info=True)
+            return [types.TextContent(
+                type="text",
+                text=json.dumps({"error": error_msg}, indent=2)
+            )]
+
+    elif name == "delete-ruleset":
+        logger.debug("=" * 80)
+        logger.debug("DELETE RULESET CALLED")
+        logger.debug(f"Arguments received: {json.dumps(arguments, indent=2)}")
+        logger.debug("=" * 80)
+
+        try:
+            logger.debug("Initializing PCE connection...")
+            pce = PolicyComputeEngine(PCE_HOST, port=PCE_PORT, org_id=PCE_ORG_ID)
+            pce.set_credentials(API_KEY, API_SECRET)
+
+            # Find the ruleset
+            ruleset = None
+            if "href" in arguments:
+                logger.debug(f"Looking up ruleset by href: {arguments['href']}")
+                try:
+                    ruleset = pce.rule_sets.get_by_reference(arguments['href'])
+                except Exception as e:
+                    logger.error(f"Failed to find ruleset by href: {str(e)}")
+                    return [types.TextContent(
+                        type="text",
+                        text=json.dumps({"error": f"Ruleset not found: {str(e)}"}, indent=2)
+                    )]
+            else:
+                logger.debug(f"Looking up ruleset by name: {arguments['name']}")
+                rulesets = pce.rule_sets.get(params={"name": arguments["name"]})
+                if rulesets:
+                    ruleset = rulesets[0]
+                else:
+                    return [types.TextContent(
+                        type="text",
+                        text=json.dumps({"error": f"Ruleset with name '{arguments['name']}' not found"}, indent=2)
+                    )]
+
+            # Delete the ruleset
+            logger.debug(f"Deleting ruleset: {ruleset.href}")
+            pce.rule_sets.delete(ruleset.href)
+
+            return [types.TextContent(
+                type="text",
+                text=json.dumps({
+                    "message": f"Successfully deleted ruleset: {ruleset.name}",
+                    "href": ruleset.href
+                }, indent=2)
+            )]
+
+        except Exception as e:
+            error_msg = f"Failed to delete ruleset: {str(e)}"
             logger.error(error_msg, exc_info=True)
             return [types.TextContent(
                 type="text",
