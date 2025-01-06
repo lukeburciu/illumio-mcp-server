@@ -152,8 +152,84 @@ Set logging level to DEBUG in the code or environment for detailed operation log
 
 ## License
 
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+This project is licensed under the GPL-3.0 License. See the [LICENSE](LICENSE) file for details.
 
 ## Support
 
 For support, please [create an issue](https://github.com/illumio/illumio-mcp/issues).
+
+# Examples
+
+## Visual Examples
+
+### Application Analysis
+![Application Analysis](images/application-analysis.png)
+*Detailed view of application communication patterns and dependencies*
+
+![Application Tier Analysis](images/application-tier-analysis.png)
+*Analysis of traffic patterns between different application tiers*
+
+### Infrastructure Insights
+![Infrastructure Analysis Dashboard](images/infrastrcture-analysis-dashboard.png)
+*Overview dashboard showing key infrastructure metrics and status*
+
+![Infrastructure Services](images/infrastructure-services-analysis.png)
+*Detailed analysis of infrastructure service communications*
+
+### Security Assessment
+![Security Analysis Report](images/security-analysis-report.png)
+*Comprehensive security analysis report*
+
+![High Risk Findings](images/security-assessment-findings-high-risk.png)
+*Security assessment findings for high-risk vulnerabilities*
+
+![PCI Compliance](images/security-assessment-findings-pci.png)
+*PCI compliance assessment findings*
+
+![SWIFT Compliance](images/security-assessment-findings-swift.png)
+*SWIFT compliance assessment findings*
+
+### Remediation Planning
+![Remediation Plan Overview](images/security-remediation-plan.png)
+*Overview of security remediation planning*
+
+![Detailed Remediation Steps](images/security-remediation-plan-2.png)
+*Detailed steps for security remediation implementation*
+
+### Policy Management
+![IP Lists Overview](images/iplists-overview.png)
+*Management interface for IP lists*
+
+![Ruleset Categories](images/ruleset-categories.png)
+*Overview of ruleset categories and organization*
+
+![Application Ruleset Ordering](images/ordering-application-ruleset-overview.png)
+*Configuration of application ruleset ordering*
+
+### Workload Management
+![Workload Analysis](images/workload-analysis.png)
+*Detailed workload analysis and metrics*
+
+![Workload Traffic](images/workload-traffic-identification.png)
+*Identification and analysis of workload traffic patterns*
+
+### Label Management
+![PCE Labels by Type](images/pce-labels-by-type.png)
+*Organization of PCE labels by type and category*
+
+### Service Analysis
+![Service Role Inference](images/service-role-inference.png)
+*Automatic inference of service roles based on traffic patterns*
+
+![Top Sources and Destinations](images/top-5-sources-and-destinations.png)
+*Analysis of top 5 traffic sources and destinations*
+
+### Project Planning
+![Project Plan](images/project-plan-mermaid.png)
+*Project implementation timeline and milestones*
+
+
+
+
+
+
