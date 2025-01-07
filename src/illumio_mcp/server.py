@@ -103,6 +103,38 @@ async def handle_list_prompts() -> list[types.Prompt]:
                     required=False,
                 )
             ],
+        ),
+        types.Prompt(
+            name="ringfence-application",
+            description="Ringfence an application by deploying rulesets to limit the inbound and outbound traffic",
+            arguments=[
+                types.PromptArgument(
+                    name="application_name",
+                    description="Name of the application to ringfence",
+                    required=True,
+                ),
+                types.PromptArgument(
+                    name="application_environment",
+                    description="Environment of the application to ringfence",
+                    required=True,
+                )
+            ],
+        ),
+        types.Prompt(
+            name="analyze-application-traffic",
+            description="Analyze the traffic flows for an application and environment",
+            arguments=[
+                types.PromptArgument(
+                    name="application_name",
+                    description="Name of the application to analyze",
+                    required=True,
+                ),
+                types.PromptArgument(
+                    name="application_environment",
+                    description="Environment of the application to analyze",
+                    required=True,
+                )
+            ]
         )
     ]
 
@@ -114,6 +146,51 @@ async def handle_get_prompt(
     Generate a prompt by combining arguments with server state.
     The prompt includes all current notes and can be customized via arguments.
     """
+    if name == "ringfence-application":
+        return types.GetPromptResult(
+            description="Ringfence an application by deploying rulesets to limit the inbound and outbound traffic",
+        messages=[
+                types.PromptMessage(
+                    role="user",
+                    content=types.TextContent(
+                        type="text",
+                        text=f"""
+                            Ringfence the application {arguments['application_name']} in the environment {arguments['application_environment']}.
+                            Inside the app, please be sure to have rules for each role or app tier to connect to the other tiers.  
+                            Always use traffic flows to find out what other applications and environemnts need to connect into {arguments['application_name']}, 
+                            and then deploy rulesets to limit the inbound traffic to those applications and environments. 
+                            For traffic that is required to connect outbound from {arguments['application_name']}, deploy rulesets to limit the 
+                            outbound traffic to those applications and environments. If a consumer is coming from the same app and env, please use 
+                            all workloads for the rules inside the scope (intra-scope). If it comes from the outside, please use app, env and if possible role
+                            If a remote app is connected as destination, a new ruleset needs to be created that has the name of the remote app and env,
+                            all incoming connections need to be added as extra-scope rules in that ruleset.
+                        """
+                    )
+                )
+            ]
+        )
+    elif name == "analyze-application-traffic":
+        return types.GetPromptResult(
+            description="Analyze the traffic flows for an application and environment",
+            messages=[
+                types.PromptMessage(
+                    role="user",
+                    content=types.TextContent(
+                        type="text",
+                        text=f"""
+                            Please provide the traffic flows for {arguments['application_name']} in the environment {arguments['application_environment']}.
+                            Order by inbound and outbound traffic and app/env/role tupels.
+                            Find other label types that are of interest and show them. Display your results in a react component. Show protocol, port and try to
+                            understand the traffic flows (e.g. 5666/tcp likely could be nagios).
+                            Categorize traffic into infrastructure and application traffic.
+                            Find out if the application is internet facing or not.
+                            Show illumio role labels, as well as application and environment labels in the output.
+                        """
+                    )
+                )
+            ]
+        )
+
     if name != "summarize-notes":
         raise ValueError(f"Unknown prompt: {name}")
 
@@ -782,7 +859,7 @@ async def handle_call_tool(
             logger.debug(f"PCE connection status: {connection_status}")
             
             logger.debug("Fetching workloads from PCE")
-            workloads = pce.workloads.get(params={"include": "labels", "max_results": 100000})
+            workloads = pce.workloads.get(params={"include": "labels", "max_results": 10000})
             logger.debug(f"Successfully retrieved {len(workloads)} workloads")
             return [types.TextContent(
                 type="text",
@@ -1022,6 +1099,21 @@ async def handle_call_tool(
         logger.debug("=" * 80)
         logger.debug("GET TRAFFIC FLOWS CALLED")
         logger.debug(f"Arguments received: {json.dumps(arguments, indent=2)}")
+        
+        # assume a default start date of 1 day ago and end date of now
+        if 'start_date' not in arguments:
+            arguments['start_date'] = (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
+        if 'end_date' not in arguments:
+            arguments['end_date'] = datetime.now().strftime('%Y-%m-%d')
+
+        if not arguments or 'start_date' not in arguments or 'end_date' not in arguments:
+            error_msg = "Missing required arguments: 'start_date' and 'end_date' are required"
+            logger.error(error_msg)
+            return [types.TextContent(
+                type="text",
+                text=json.dumps({"error": error_msg})
+            )]
+
         logger.debug(f"Start Date: {arguments.get('start_date')}")
         logger.debug(f"End Date: {arguments.get('end_date')}")
         logger.debug(f"Include Sources: {arguments.get('include_sources', [])}")
@@ -1032,7 +1124,7 @@ async def handle_call_tool(
         logger.debug(f"Exclude Services: {arguments.get('exclude_services', [])}")
         logger.debug(f"Policy Decisions: {arguments.get('policy_decisions', [])}")
         logger.debug(f"Exclude Workloads from IP List: {arguments.get('exclude_workloads_from_ip_list_query', True)}")
-        logger.debug(f"Max Results: {arguments.get('max_results', 100000)}")
+        logger.debug(f"Max Results: {arguments.get('max_results', 10000)}")
         logger.debug(f"Query Name: {arguments.get('query_name')}")
         logger.debug("=" * 80)
 
@@ -1051,7 +1143,7 @@ async def handle_call_tool(
                 exclude_services=arguments.get('exclude_services', []),
                 policy_decisions=arguments.get('policy_decisions', []),
                 exclude_workloads_from_ip_list_query=arguments.get('exclude_workloads_from_ip_list_query', True),
-                max_results=arguments.get('max_results', 100000),
+                max_results=arguments.get('max_results', 10000),
                 query_name=arguments.get('query_name', 'mcp-traffic-query')
             )
 
@@ -1110,7 +1202,7 @@ async def handle_call_tool(
         logger.debug(f"Exclude Services: {arguments.get('exclude_services', [])}")
         logger.debug(f"Policy Decisions: {arguments.get('policy_decisions', [])}")
         logger.debug(f"Exclude Workloads from IP List: {arguments.get('exclude_workloads_from_ip_list_query', True)}")
-        logger.debug(f"Max Results: {arguments.get('max_results', 100000)}")
+        logger.debug(f"Max Results: {arguments.get('max_results', 10000)}")
         logger.debug(f"Query Name: {arguments.get('query_name')}")
         logger.debug("=" * 80)
 
@@ -1129,7 +1221,7 @@ async def handle_call_tool(
                 exclude_services=arguments.get('exclude_services', []),
                 policy_decisions=arguments.get('policy_decisions', []),
                 exclude_workloads_from_ip_list_query=arguments.get('exclude_workloads_from_ip_list_query', True),
-                max_results=arguments.get('max_results', 100000),
+                max_results=arguments.get('max_results', 10000),
                 query_name=arguments.get('query_name', 'mcp-traffic-summary')
             )
 
@@ -1239,7 +1331,7 @@ async def handle_call_tool(
             if arguments.get('description'):
                 params['description'] = arguments['description']
 
-            params['max_results'] = 100000
+            params['max_results'] = 10000
 
             ip_lists = pce.ip_lists.get(params=params)
             
