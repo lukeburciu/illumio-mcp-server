@@ -265,19 +265,29 @@ The `analyze-application-traffic` prompt provides detailed analysis of applicati
 - Determines internet exposure
 - Displays Illumio role, application, and environment labels
 
-### Summarize Notes
-The `summarize-notes` prompt creates summaries of stored notes.
+### How to use MCP prompts
 
-**Optional Arguments:**
-- `style`: Style of the summary (brief/detailed)
+Step1: Click "Attach from MCP" button in the interface
 
-**Features:**
-- Combines all current notes into a single summary
-- Adjusts detail level based on style argument
-- Provides context for note relationships
+![MCP Prompt Workflow](images/prompts-finding-prompt-menu.png)
 
+Step 2: Choose from installed MCP servers
 
+![MCP Prompt Workflow](images/prompts-choose-integration.png)
 
+Step 3: Fill in required prompt arguments:
+
+![MCP Prompt Workflow](images/prompts-required-parameters.png)
+
+Step 4: Click Submit to send the configured prompt
+
+### How prompts work
+
+- The MCP server sends the configured prompt to Claude
+- Claude receives context through the Model Context Protocol
+- Allows specialized handling of Illumio-specific tasks
+
+This workflow enables automated context sharing between Illumio systems and Claude for application traffic analysis and ringfencing tasks.
 
 
 
