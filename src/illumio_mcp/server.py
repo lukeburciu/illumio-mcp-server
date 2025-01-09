@@ -1156,6 +1156,25 @@ async def handle_call_tool(
                     continue
 
             df = to_dataframe(all_traffic)
+
+            # limit dataframe json output to less than 1048576
+            MAX_ROWS = 10000
+            if len(df) > MAX_ROWS:
+                logger.warning(f"Truncating results from {len(df)} to {MAX_ROWS} entries")
+                df = df.nlargest(MAX_ROWS, 'num_connections')
+
+            response_size = len(df.to_json(orient="records"))
+
+            if response_size > 1048576:
+                logger.warning(f"Response size exceeds 1MB limit. Truncating to {MAX_ROWS} entries")
+                step_down = 0.9
+                while response_size > 1048576 or step_down == 0:
+                    rows = int(MAX_ROWS * step_down)
+                    step_down = step_down - 0.1
+                    df = df.nlargest(rows, 'num_connections')
+                    response_size = len(df.to_json(orient="records"))
+                    logger.debug(f"Response size: {response_size} Step down: {step_down}")
+
             # return dataframe df in json format
             return [types.TextContent(
                 type="text",
@@ -2172,7 +2191,7 @@ def to_dataframe(flows):
         value_href_map["{}={}".format(l.key, l.value)] = l.href
 
     if not flows:
-        print("Warning: Empty flows list received.")
+        logger.warning("Warning: Empty flows list received.")
         return pd.DataFrame()
 
     series_array = []
@@ -2211,11 +2230,10 @@ def to_dataframe(flows):
 
                 series_array.append(f)
         except AttributeError as e:
-            print(f"Error processing flow: {e}")
-            print(f"Flow object: {flow}")
+            logger.debug(f"Error processing flow: {e}")
+            logger.debug(f"Flow object: {flow}")
 
     df = pd.DataFrame(series_array)
-    print(f"DataFrame info:\n{df.info()}")
     return df
   
 def summarize_traffic(df):
