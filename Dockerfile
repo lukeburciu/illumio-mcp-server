@@ -22,12 +22,13 @@ COPY --from=builder /app/src /app/src
 
 # Set environment variables
 ENV PATH="/app/venv/bin:$PATH"
-ENV DOCKER_CONTAINER=true
-ENV PYTHONWARNINGS=ignore
+ENV PYTHONPATH=/app
 
-# Run as non-root user
-RUN useradd -m -u 1000 illumio && \
-    chown -R illumio:illumio /app
+# Create log directory with proper permissions
+RUN mkdir -p /var/log/illumio-mcp && \
+    useradd -m -u 1000 illumio && \
+    chown -R illumio:illumio /app && \
+    chown -R illumio:illumio /var/log/illumio-mcp
 
 USER illumio
 
