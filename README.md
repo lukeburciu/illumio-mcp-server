@@ -305,41 +305,83 @@ You can also use a specific version by replacing `latest` with a version number:
 docker pull ghcr.io/alexgoller/illumio-mcp-server:1.0.0
 ```
 
-### Run the container
+### Run with Claude Desktop
 
-Basic usage:
+To use the container with Claude Desktop, you'll need to:
+
+1. Create an environment file (e.g. `~/.illumio-mcp.env`) with your PCE credentials:
+
+```env
+PCE_HOST=your-pce-host
+PCE_PORT=your-pce-port
+PCE_ORG_ID=1
+API_KEY=your-api-key
+API_SECRET=your-api-secret
+```
+
+2. Add the following configuration to your Claude Desktop config file:
+
+On MacOS (`~/Library/Application Support/Claude/claude_desktop_config.json`):
+```json
+{
+    "mcpServers": {
+        "illumio-mcp-docker": {
+            "command": "docker",
+            "args": [
+                "run",
+                "-i",
+                "--init",
+                "--rm",
+                "-v",
+                "/Users/YOUR_USERNAME/tmp:/var/log/illumio-mcp",
+                "-e",
+                "DOCKER_CONTAINER=true",
+                "-e",
+                "PYTHONWARNINGS=ignore",
+                "--env-file",
+                "/Users/YOUR_USERNAME/.illumio-mcp.env",
+                "ghcr.io/alexgoller/illumio-mcp-server:latest"
+            ]
+        }
+    }
+}
+```
+
+Make sure to:
+- Replace `YOUR_USERNAME` with your actual username
+- Create the log directory (e.g. `~/tmp`)
+- Adjust the paths according to your system
+
+### Run Standalone
+
+You can also run the container directly:
 
 ```bash
-docker run \
-  -v $(pwd)/logs:/var/log/illumio-mcp \
-  -e DOCKER_CONTAINER=1 \
-  -e PCE_HOST=your-pce-host \
-  -e PCE_PORT=your-pce-port \
-  -e PCE_ORG_ID=1 \
-  -e API_KEY=your-api-key \
-  -e API_SECRET=your-api-secret \
+docker run -i --init --rm \
+  -v /path/to/logs:/var/log/illumio-mcp \
+  -e DOCKER_CONTAINER=true \
+  -e PYTHONWARNINGS=ignore \
+  --env-file ~/.illumio-mcp.env \
   ghcr.io/alexgoller/illumio-mcp-server:latest
 ```
 
 ### Docker Compose
 
-You can also use Docker Compose. Create a `docker-compose.yml` file:
+For development or testing, you can use Docker Compose. Create a `docker-compose.yml` file:
 
 ```yaml
 version: '3'
 services:
   illumio-mcp:
     image: ghcr.io/alexgoller/illumio-mcp-server:latest
+    init: true
     volumes:
       - ./logs:/var/log/illumio-mcp
     environment:
-      - DOCKER_CONTAINER=1
-      - PCE_HOST=your-pce-host
-      - PCE_PORT=your-pce-port
-      - PCE_ORG_ID=1
-      - API_KEY=your-api-key
-      - API_SECRET=your-api-secret
-      - LOG_LEVEL=INFO
+      - DOCKER_CONTAINER=true
+      - PYTHONWARNINGS=ignore
+    env_file:
+      - ~/.illumio-mcp.env
 ```
 
 Then run:

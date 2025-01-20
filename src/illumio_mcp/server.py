@@ -30,9 +30,7 @@ def setup_logging():
         log_path = Path('/var/log/illumio-mcp/illumio-mcp.log')
     else:
         # Use home directory for local logging
-        log_dir = Path.home() / '.illumio-mcp' / 'logs'
-        log_dir.mkdir(parents=True, exist_ok=True)
-        log_path = log_dir / 'illumio-mcp.log'
+        log_path = './illumio-mcp.log'
     
     file_handler = logging.FileHandler(str(log_path))
     file_handler.setFormatter(formatter)
@@ -48,8 +46,7 @@ def setup_logging():
 logger = setup_logging()
 logger.debug("Loading environment variables")
 
-if dotenv.load_dotenv():
-    logger.debug("Environment variables loaded")
+dotenv.load_dotenv()
 
 PCE_HOST = os.getenv("PCE_HOST")
 PCE_PORT = os.getenv("PCE_PORT")
@@ -63,12 +60,13 @@ MCP_BUG_MAX_RESULTS = 500
 notes: dict[str, str] = {}
 
 server = Server("illumio-mcp")
+logging.debug("Server initialized")
 
 @server.list_prompts()
 async def handle_list_prompts() -> list[types.Prompt]:
     """
     List available prompts.
-    Each prompt can have optional arguments to customize its behavior.
+        Each prompt can have optional arguments to customize its behavior.
     """
     return [
         types.Prompt(
@@ -2323,6 +2321,7 @@ def summarize_traffic(df):
 
 async def main():
     # Run the server using stdin/stdout streams
+    logger.debug("Starting server")
     async with mcp.server.stdio.stdio_server() as (read_stream, write_stream):
         await server.run(
             read_stream,
@@ -2336,14 +2335,6 @@ async def main():
                 ),
             ),
         )
-
-# After loading environment variables
-logger.debug("Environment check:")
-logger.debug(f"PCE_HOST set: {PCE_HOST}")
-logger.debug(f"PCE_PORT set: {PCE_PORT}")
-logger.debug(f"PCE_ORG_ID set: {PCE_ORG_ID}")
-logger.debug(f"API_KEY set: {API_KEY}")
-logger.debug(f"API_SECRET set: {bool(API_SECRET)}")
 
 class ServicePortEncoder(JSONEncoder):
     def default(self, obj):
