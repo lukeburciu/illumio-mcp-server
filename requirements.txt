@@ -9,9 +9,8 @@ httpx==0.28.0
 httpx-sse==0.4.0
 idna==3.10
 illumio==1.1.3
--e file:///Users/alex.goller/git/illumio-mcp
 logging==0.4.9.6
-mcp==1.0.0
+mcp==1.2.0
 numpy==2.1.3
 pandas==2.2.3
 pydantic==2.10.2
