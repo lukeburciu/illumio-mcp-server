@@ -296,13 +296,13 @@ The application is available as a Docker container from the GitHub Container Reg
 ### Pull the container
 
 ```bash
-docker pull ghcr.io/illumio-mcp/illumio-mcp:latest
+docker pull ghcr.io/alexgoller/illumio-mcp-server:latest
 ```
 
 You can also use a specific version by replacing `latest` with a version number:
 
 ```bash
-docker pull ghcr.io/illumio-mcp/illumio-mcp:1.0.0
+docker pull ghcr.io/alexgoller/illumio-mcp-server:1.0.0
 ```
 
 ### Run the container
@@ -310,26 +310,49 @@ docker pull ghcr.io/illumio-mcp/illumio-mcp:1.0.0
 Basic usage:
 
 ```bash
-docker run -p 8000:8000 ghcr.io/illumio-mcp/illumio-mcp:latest
+docker run -p 8000:8000 ghcr.io/alexgoller/illumio-mcp-server:latest
 ```
 
 With custom port and configuration:
 
 ```bash
-docker run -p 8080:8000 \
+docker run \
   -v /path/to/config.yaml:/app/config.yaml \
-  ghcr.io/illumio-mcp/illumio-mcp:latest
+  ghcr.io/alexgoller/illumio-mcp-server:latest
 ```
 
 ### Environment Variables
 
-The Docker container supports all the same environment variables as the native application. For example:
+The Docker container supports all the same environment variables as the native application. The following environment variables are required:
 
 ```bash
-docker run -p 8000:8000 \
+docker run \
+  -e DOCKER_CONTAINER=1 \
+  -e PCE_HOST=your-pce-host \
+  -e PCE_PORT=your-pce-port \
+  -e PCE_ORG_ID=1 \
+  -e API_KEY=your-api-key \
+  -e API_SECRET=your-api-secret \
   -e LOG_LEVEL=DEBUG \
-  -e PORT=8000 \
-  ghcr.io/illumio-mcp/illumio-mcp:latest
+  ghcr.io/alexgoller/illumio-mcp-server:latest
+```
+
+You can also use an environment file. Create a `.env` file:
+
+```env
+DOCKER_CONTAINER=1
+PCE_HOST=your-pce-host
+PCE_PORT=your-pce-port
+PCE_ORG_ID=1
+API_KEY=your-api-key
+API_SECRET=your-api-secret
+LOG_LEVEL=INFO
+```
+
+Then use it with Docker:
+
+```bash
+docker run --env-file .env ghcr.io/alexgoller/illumio-mcp-server:latest
 ```
 
 ### Docker Compose
@@ -340,12 +363,18 @@ You can also use Docker Compose. Create a `docker-compose.yml` file:
 version: '3'
 services:
   illumio-mcp:
-    image: ghcr.io/illumio-mcp/illumio-mcp:latest
+    image: ghcr.io/alexgoller/illumio-mcp-server:latest
     ports:
       - "8000:8000"
     volumes:
       - ./config.yaml:/app/config.yaml
     environment:
+      - DOCKER_CONTAINER=1
+      - PCE_HOST=your-pce-host
+      - PCE_PORT=your-pce-port
+      - PCE_ORG_ID=1
+      - API_KEY=your-api-key
+      - API_SECRET=your-api-secret
       - LOG_LEVEL=INFO
 ```
 
