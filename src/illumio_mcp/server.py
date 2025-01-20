@@ -29,11 +29,6 @@ def setup_logging():
     
     if in_docker:
         # Use stdout/stderr for Docker
-        stdout_handler = logging.StreamHandler(sys.stdout)
-        stdout_handler.setFormatter(formatter)
-        stdout_handler.setLevel(logging.DEBUG)
-        logger.addHandler(stdout_handler)
-        
         stderr_handler = logging.StreamHandler(sys.stderr)
         stderr_handler.setFormatter(formatter)
         stderr_handler.setLevel(logging.ERROR)
