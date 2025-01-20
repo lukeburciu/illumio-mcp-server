@@ -5,7 +5,7 @@ import logging
 from mcp.server.models import InitializationOptions
 import mcp.types as types
 from mcp.server import NotificationOptions, Server
-from pydantic import AnyUrl
+from pydantic import AnyUrl, BaseModel
 import mcp.server.stdio
 import dotenv
 import sys
@@ -14,8 +14,47 @@ from illumio import *
 import pandas as pd
 from json import JSONEncoder
 
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
+def setup_logging():
+    """Configure logging based on environment"""
+    logger = logging.getLogger('illumio_mcp')
+    logger.setLevel(logging.DEBUG)
+    
+    # Create formatter
+    formatter = logging.Formatter(
+        '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    )
+    
+    # Check if running in Docker
+    in_docker = os.environ.get('DOCKER_CONTAINER', False)
+    
+    if in_docker:
+        # Use stdout/stderr for Docker
+        stdout_handler = logging.StreamHandler(sys.stdout)
+        stdout_handler.setFormatter(formatter)
+        stdout_handler.setLevel(logging.DEBUG)
+        logger.addHandler(stdout_handler)
+        
+        stderr_handler = logging.StreamHandler(sys.stderr)
+        stderr_handler.setFormatter(formatter)
+        stderr_handler.setLevel(logging.ERROR)
+        logger.addHandler(stderr_handler)
+    else:
+        # Use file handler for local development
+        log_dir = os.path.expanduser('~/.illumio-mcp/logs')
+        os.makedirs(log_dir, exist_ok=True)
+        
+        file_handler = logging.FileHandler(
+            os.path.join(log_dir, 'illumio-mcp.log')
+        )
+        file_handler.setFormatter(formatter)
+        file_handler.setLevel(logging.DEBUG)
+        logger.addHandler(file_handler)
+    
+    return logger
+
+# Initialize logging
+logger = setup_logging()
+
 logger.debug("Loading environment variables")
 
 dotenv.load_dotenv()
@@ -26,65 +65,12 @@ PCE_ORG_ID = os.getenv("PCE_ORG_ID")
 API_KEY = os.getenv("API_KEY")
 API_SECRET = os.getenv("API_SECRET")
 
+MCP_BUG_MAX_RESULTS = 500
+
 # Store notes as a simple key-value dict to demonstrate state management
 notes: dict[str, str] = {}
 
 server = Server("illumio-mcp")
-
-# Update logging configuration at the top of the file after imports
-logging.basicConfig(
-    level=logging.DEBUG,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.StreamHandler(sys.stderr),  # Log to stderr since stdout is used for MCP
-        logging.FileHandler('illumio-mcp.log')  # Also log to a file for persistence
-    ]
-)
-
-@server.list_resources()
-async def handle_list_resources() -> list[types.Resource]:
-    """
-    List available note resources.
-    Each note is exposed as a resource with a custom note:// URI scheme.
-    """
-    return [
-        types.Resource(
-            uri=AnyUrl(f"illumio://workloads"),
-            name=f"Workloads",
-            description=f"Get workloads from the PCE",
-            mimeType="application/json",
-        ),
-        types.Resource(
-            uri=AnyUrl(f"illumio://labels"),
-            name=f"Labels",
-            description=f"Get all labels from PCE",
-            mimeType="application/json",
-        )
-    ]
-
-@server.read_resource()
-async def handle_read_resource(uri: AnyUrl) -> str:
-    """
-    Read a specific note's content by its URI.
-    The note name is extracted from the URI host component.
-    """
-    if uri.scheme == "illumio":
-        if uri.path == "workloads":
-            return json.dumps({"workload": { "name": "server", "ip": "10.1.1.1" }})
-        if uri.path == "labels":
-            pce = PolicyComputeEngine(PCE_HOST, port=PCE_PORT, org_id=PCE_ORG_ID)
-            pce.set_credentials(API_KEY, API_SECRET)
-            labels = pce.labels.get()
-            return json.dumps({"labels": labels})
-
-    if uri.scheme != "note":
-        raise ValueError(f"Unsupported URI scheme: {uri.scheme}")
-
-    name = uri.path
-    if name is not None:
-        name = name.lstrip("/")
-        return notes[name]
-    raise ValueError(f"Note not found: {name}")
 
 @server.list_prompts()
 async def handle_list_prompts() -> list[types.Prompt]:
@@ -156,6 +142,9 @@ async def handle_get_prompt(
                         type="text",
                         text=f"""
                             Ringfence the application {arguments['application_name']} in the environment {arguments['application_environment']}.
+                            Always reference labels as hrefs like /orgs/1/labels/57 or similar.
+                            Consumers means the source of the traffic, providers means the destination of the traffic.
+                            First, retrieve all the traffic flows inside the application and environment. Analyze the connections. Then retrieve all the traffic flows inbound to the application and environment.
                             Inside the app, please be sure to have rules for each role or app tier to connect to the other tiers.  
                             Always use traffic flows to find out what other applications and environemnts need to connect into {arguments['application_name']}, 
                             and then deploy rulesets to limit the inbound traffic to those applications and environments. 
@@ -164,6 +153,26 @@ async def handle_get_prompt(
                             all workloads for the rules inside the scope (intra-scope). If it comes from the outside, please use app, env and if possible role
                             If a remote app is connected as destination, a new ruleset needs to be created that has the name of the remote app and env,
                             all incoming connections need to be added as extra-scope rules in that ruleset.
+                            The logic in illumio is the following.
+
+If a scope exists. Rules define connections within the scope if unscoped consumers is not set to true. Unscoped consumers define inbound traffic from things outside the scope. The unscoped consumer is a set of labels being the source of inbound traffic. Provider is the destination. For the provider a value of AMS (short for all workloads) means that a connection is allowed for all workloads inside the scope. So for example if the source is role=monitoring, app=nagios, env=prod, then the rule for the app=ordering, env=prod application would be:
+
+  consumer: role=monitoring,app=nagios,env=prod 
+  provider: role=All workloads
+  service: 5666/tcp
+
+  If a rule is setting unscoped consumers to "false", this means that the rule is intra scope. Repeating any label that is in the scope does not make sense for this. Instead use role or whatever specific label to characterize the thing in the scope.
+
+e.g. for the loadbalancer to connect to the web-tier in ordering, prod the rule is:
+
+scope: app=ordering, env=prod
+consumers: role=loadbalancer
+providers: role=web
+service: 8080/tcp
+unscoped consumers: false
+
+This is a intra-scope rule allowing the role=loadbalancer,app=ordering,env=prod workloads to connect to the role=web,app=ordering,env=prod workloads on port 8080/tcp. 
+
                         """
                     )
                 )
@@ -1104,13 +1113,17 @@ async def handle_call_tool(
         logger.debug(f"Exclude Services: {arguments.get('exclude_services', [])}")
         logger.debug(f"Policy Decisions: {arguments.get('policy_decisions', [])}")
         logger.debug(f"Exclude Workloads from IP List: {arguments.get('exclude_workloads_from_ip_list_query', True)}")
-        logger.debug(f"Max Results: {arguments.get('max_results', 10000)}")
+        logger.debug(f"Max Results: {arguments.get('max_results', 900)}")
         logger.debug(f"Query Name: {arguments.get('query_name')}")
         logger.debug("=" * 80)
 
         try:
             pce = PolicyComputeEngine(PCE_HOST, port=PCE_PORT, org_id=PCE_ORG_ID)
             pce.set_credentials(API_KEY, API_SECRET)
+
+            logger.debug(f"Due to a condition in MCP, max results is set to {MCP_BUG_MAX_RESULTS}")
+            # TODO: fix this in the future...
+            arguments['max_results'] = MCP_BUG_MAX_RESULTS
 
             traffic_query = TrafficQuery.build(
                 start_date=arguments['start_date'],
@@ -1157,8 +1170,11 @@ async def handle_call_tool(
 
             df = to_dataframe(all_traffic)
 
+            # group dataframe by src_ip, dst_ip, proto, port, policy_decision tuples, aggregate num_connections
+            df = df.groupby(['src_ip', 'dst_ip', 'proto', 'port', 'policy_decision']).agg({'num_connections': 'sum'}).reset_index()
+
             # limit dataframe json output to less than 1048576
-            MAX_ROWS = 10000
+            MAX_ROWS = 1000
             if len(df) > MAX_ROWS:
                 logger.warning(f"Truncating results from {len(df)} to {MAX_ROWS} entries")
                 df = df.nlargest(MAX_ROWS, 'num_connections')
@@ -1175,10 +1191,14 @@ async def handle_call_tool(
                     response_size = len(df.to_json(orient="records"))
                     logger.debug(f"Response size: {response_size} Step down: {step_down}")
 
+            # trying this in case GC doesn't work
+            df_json = df.to_json(orient="records")
+            del df
+
             # return dataframe df in json format
             return [types.TextContent(
                 type="text",
-                text=df.to_json(orient="records")
+                text= df_json
             )]
         except Exception as e:
             error_msg = f"Failed in PCE operation: {str(e)}"
@@ -1209,6 +1229,12 @@ async def handle_call_tool(
             pce = PolicyComputeEngine(PCE_HOST, port=PCE_PORT, org_id=PCE_ORG_ID)
             pce.set_credentials(API_KEY, API_SECRET)
 
+            logger.debug(f"Due to a condition in MCP, max results is set to {MCP_BUG_MAX_RESULTS}")
+            # TODO: fix this in the future...
+            if 'max_results' in arguments and arguments.get('max_results') > MCP_BUG_MAX_RESULTS:
+                logger.debug(f"Setting max results to {MCP_BUG_MAX_RESULTS} from original value {arguments.get('max_results')}")
+                arguments['max_results'] = MCP_BUG_MAX_RESULTS
+
             query = TrafficQuery.build(
                 start_date=arguments['start_date'],
                 end_date=arguments['end_date'],
@@ -1232,15 +1258,20 @@ async def handle_call_tool(
             df = to_dataframe(all_traffic)
             summary = summarize_traffic(df)
             
+            summary_lines = ""
             # Ensure the summary is a list of strings
-            if isinstance(summary, str):
-                summary_lines = summary.split('\n')
+            if isinstance(summary, list):
+                # join list to be one string separated by newlines
+                summary_lines = "\n".join(summary)
             else:
-                summary_lines = [str(line) for line in summary]
+                summary_lines = str(summary)
+
+            logger.debug(f"Summary data type: {type(summary_lines)}")
+            logger.debug(f"Summary size: {len(summary_lines)}")
 
             return [types.TextContent(
                 type="text",
-                text=json.dumps({"summary": summary_lines}, indent=2)
+                text=summary_lines
             )]
         except Exception as e:
             error_msg = f"Failed in PCE operation: {str(e)}"
