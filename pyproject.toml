@@ -1,6 +1,6 @@
 [project]
 name = "illumio-mcp"
-version = "0.2.0"
+version = "0.1.0"
 description = "A MCP server project"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -16,8 +16,11 @@ name = "alexgoller"
 email = "83632450+alexgoller@users.noreply.github.com"
 
 [build-system]
-requires = [ "hatchling",]
+requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project.scripts]
 illumio-mcp = "illumio_mcp:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/illumio_mcp"]
