@@ -23,7 +23,7 @@ COPY --from=builder /app/src /app/src
 # Set environment variables
 ENV PATH="/app/venv/bin:$PATH"
 ENV DOCKER_CONTAINER=true
-ENV PYTHONPATH=/app
+ENV PYTHONWARNINGS=ignore
 
 # Run as non-root user
 RUN useradd -m -u 1000 illumio && \

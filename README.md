@@ -384,5 +384,28 @@ Then run:
 docker-compose up
 ```
 
+### Known Issues
+
+When running the container, you may see syntax warnings from the Illumio SDK's regular expressions. These warnings don't affect functionality and are automatically suppressed in the container.
+
+If you're seeing the warnings when running the container, you can manually suppress them by adding:
+
+```bash
+docker run \
+  -e PYTHONWARNINGS=ignore \
+  ... other environment variables ...
+  ghcr.io/alexgoller/illumio-mcp-server:latest
+```
+
+Or in docker-compose.yml:
+
+```yaml
+services:
+  illumio-mcp:
+    environment:
+      - PYTHONWARNINGS=ignore
+      # ... other environment variables ...
+```
+
 
 

@@ -31,7 +31,7 @@ def setup_logging():
         # Use stdout/stderr for Docker
         stderr_handler = logging.StreamHandler(sys.stderr)
         stderr_handler.setFormatter(formatter)
-        stderr_handler.setLevel(logging.ERROR)
+        stderr_handler.setLevel(logging.DEBUG)
         logger.addHandler(stderr_handler)
     else:
         # Use file handler for local development
@@ -49,10 +49,10 @@ def setup_logging():
 
 # Initialize logging
 logger = setup_logging()
-
 logger.debug("Loading environment variables")
 
-dotenv.load_dotenv()
+if dotenv.load_dotenv():
+    logger.debug("Environment variables loaded")
 
 PCE_HOST = os.getenv("PCE_HOST")
 PCE_PORT = os.getenv("PCE_PORT")
