@@ -289,5 +289,71 @@ Step 4: Click Submit to send the configured prompt
 
 This workflow enables automated context sharing between Illumio systems and Claude for application traffic analysis and ringfencing tasks.
 
+## Docker
+
+The application is available as a Docker container from the GitHub Container Registry.
+
+### Pull the container
+
+```bash
+docker pull ghcr.io/illumio-mcp/illumio-mcp:latest
+```
+
+You can also use a specific version by replacing `latest` with a version number:
+
+```bash
+docker pull ghcr.io/illumio-mcp/illumio-mcp:1.0.0
+```
+
+### Run the container
+
+Basic usage:
+
+```bash
+docker run -p 8000:8000 ghcr.io/illumio-mcp/illumio-mcp:latest
+```
+
+With custom port and configuration:
+
+```bash
+docker run -p 8080:8000 \
+  -v /path/to/config.yaml:/app/config.yaml \
+  ghcr.io/illumio-mcp/illumio-mcp:latest
+```
+
+### Environment Variables
+
+The Docker container supports all the same environment variables as the native application. For example:
+
+```bash
+docker run -p 8000:8000 \
+  -e LOG_LEVEL=DEBUG \
+  -e PORT=8000 \
+  ghcr.io/illumio-mcp/illumio-mcp:latest
+```
+
+### Docker Compose
+
+You can also use Docker Compose. Create a `docker-compose.yml` file:
+
+```yaml
+version: '3'
+services:
+  illumio-mcp:
+    image: ghcr.io/illumio-mcp/illumio-mcp:latest
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./config.yaml:/app/config.yaml
+    environment:
+      - LOG_LEVEL=INFO
+```
+
+Then run:
+
+```bash
+docker-compose up
+```
+
 
 
