@@ -447,6 +447,22 @@ async def handle_list_tools() -> list[types.Tool]:
                 }
             }
         ),
+        # add a delete-ruleset tool, either by href or name
+        types.Tool(
+            name="delete-ruleset",
+            description="Delete a ruleset from the PCE",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "href": {"type": "string"},
+                    "name": {"type": "string"}
+                },
+                "oneOf": [
+                    {"required": ["href"]},
+                    {"required": ["name"]}
+                ]
+            }
+        ),
         types.Tool(
             name="get-iplists",
             description="Get IP lists from the PCE",
@@ -1637,6 +1653,32 @@ async def handle_call_tool(
                 type="text",
                 text=json.dumps({"error": error_msg})
             )]
+    elif name == "delete-ruleset":
+        logger.debug("=" * 80)
+        logger.debug("DELETE RULESET CALLED")
+        logger.debug(f"Arguments received: {json.dumps(arguments, indent=2)}")
+        logger.debug("=" * 80)
+
+        # add implementation here for delete-ruleset
+        try:
+            pce = PolicyComputeEngine(PCE_HOST, port=PCE_PORT, org_id=PCE_ORG_ID)
+            pce.set_credentials(API_KEY, API_SECRET)
+            # check if href or name is provided, for href, delete, for name, get and delete 
+            if "href" in arguments:
+                pce.rule_sets.delete(arguments["href"])
+            elif "name" in arguments:
+                rulesets = pce.rule_sets.get(params={"name": arguments["name"]})
+                if rulesets:
+                    pce.rule_sets.delete(rulesets[0].href)
+                    return [types.TextContent(type="text", text=json.dumps({"success": "Ruleset deleted successfully"}))]
+                else:
+                    return [types.TextContent(type="text", text=json.dumps({"error": "Ruleset not found"}))]
+            else:
+                return [types.TextContent(type="text", text=json.dumps({"error": "Either href or name must be provided"}))]
+        except Exception as e:
+            error_msg = f"Failed to delete ruleset: {str(e)}"
+            logger.error(error_msg, exc_info=True)
+            return [types.TextContent(type="text", text=json.dumps({"error": error_msg}))]
     elif name == "get-services":
         logger.debug("=" * 80)
         logger.debug("GET SERVICES CALLED")

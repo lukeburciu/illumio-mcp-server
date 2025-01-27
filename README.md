@@ -340,7 +340,7 @@ On MacOS (`~/Library/Application Support/Claude/claude_desktop_config.json`):
                 "PYTHONWARNINGS=ignore",
                 "--env-file",
                 "/Users/YOUR_USERNAME/.illumio-mcp.env",
-                "ghcr.io/alexgoller/illumio-mcp-server:latest"
+                "illumio-mcp:latest"
             ]
         }
     }
@@ -412,6 +412,55 @@ services:
       - PYTHONWARNINGS=ignore
       # ... other environment variables ...
 ```
+
+### Claude Desktop Configuration
+
+For Claude Desktop users, add this configuration to your Claude Desktop config file:
+
+```json
+{
+    "mcpServers": {
+        "illumio-mcp-docker": {
+            "command": "docker",
+            "args": [
+                "run",
+                "-i",
+                "--init",
+                "--rm",
+                "-v",
+                "/Users/YOUR_USERNAME/tmp:/var/log/illumio-mcp",
+                "-e",
+                "DOCKER_CONTAINER=true",
+                "-e",
+                "PYTHONWARNINGS=ignore",
+                "--env-file",
+                "/Users/YOUR_USERNAME/.illumio-mcp.env",
+                "illumio-mcp:latest"
+            ]
+        }
+    }
+}
+```
+
+Make sure to:
+1. Replace `YOUR_USERNAME` with your actual username
+2. Create a log directory at `~/tmp` (or adjust the path as needed)
+3. Create an environment file at `~/.illumio-mcp.env` with your PCE credentials:
+
+```env
+PCE_HOST=your-pce-host
+PCE_PORT=your-pce-port
+PCE_ORG_ID=1
+API_KEY=your-api-key
+API_SECRET=your-api-secret
+```
+
+The configuration:
+- Uses Docker to run the container
+- Mounts a local directory for logs
+- Suppresses Python warnings
+- Loads PCE credentials from an environment file
+- Enables proper container cleanup with `--init` and `--rm`
 
 
 
