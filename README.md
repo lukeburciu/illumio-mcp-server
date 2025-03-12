@@ -2,6 +2,10 @@
 
 A Model Context Protocol (MCP) server that provides an interface to interact with Illumio PCE (Policy Compute Engine). This server enables programmatic access to Illumio workload management, label operations, and traffic flow analysis.
 
+<a href="https://glama.ai/mcp/servers/xhqzxlo9iy">
+  <img width="380" height="200" src="https://glama.ai/mcp/servers/xhqzxlo9iy/badge" alt="Illumio Server MCP server" />
+</a>
+
 ## What can it do?
 
 Use conversational AI to talk to your PCE:
@@ -69,7 +73,7 @@ Add the following to the `custom_settings` section:
 
 ### Resources
 
-Resources are not finished yet and i will look into that later.
+Resources are not finished yet and I will look into that later.
 
 - `illumio://workloads` - Get workloads from the PCE
 - `illumio://labels` - Get all labels from PCE
@@ -461,6 +465,3 @@ The configuration:
 - Suppresses Python warnings
 - Loads PCE credentials from an environment file
 - Enables proper container cleanup with `--init` and `--rm`
-
-
-
