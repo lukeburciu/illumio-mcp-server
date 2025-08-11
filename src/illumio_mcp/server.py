@@ -231,9 +231,12 @@ async def get_workloads_by_label(
         workloads = pce.workloads.get(params=params)
         logger.debug(f"Successfully retrieved {len(workloads)} workloads with label filters")
         
+        # Filter to essential fields only
+        filtered_workloads = filter_workload_fields(workloads)
+        
         # Use custom encoder for proper JSON serialization
         encoder = IllumioJSONEncoder()
-        workloads_json = encoder.encode(workloads)
+        workloads_json = encoder.encode(filtered_workloads)
         
         return f"Workloads: {workloads_json}"
     except Exception as e:
@@ -770,6 +773,57 @@ async def get_events(
         return f"Error: {error_msg}"
 
 # Helper functions for traffic analysis
+def filter_workload_fields(workloads):
+    """Filter workload objects to include only essential and useful fields"""
+    if not isinstance(workloads, list):
+        workloads = [workloads]
+    
+    filtered_workloads = []
+    for workload in workloads:
+        if hasattr(workload, '__dict__'):
+            workload_dict = workload.__dict__
+        else:
+            workload_dict = workload
+        
+        # Essential fields
+        filtered = {
+            'href': workload_dict.get('href'),
+            'name': workload_dict.get('name'),
+            'hostname': workload_dict.get('hostname'),
+            'interfaces': workload_dict.get('interfaces'),
+            'labels': workload_dict.get('labels'),
+            'online': workload_dict.get('online'),
+            'enforcement_mode': workload_dict.get('enforcement_mode')
+        }
+        
+        # Useful fields
+        filtered.update({
+            'managed': workload_dict.get('managed'),
+            'created_at': workload_dict.get('created_at'),
+            'updated_at': workload_dict.get('updated_at'),
+            'description': workload_dict.get('description'),
+            'os_id': workload_dict.get('os_id'),
+            'os_detail': workload_dict.get('os_detail')
+        })
+        
+        # Agent info (if managed)
+        if workload_dict.get('agent') and workload_dict.get('managed'):
+            agent = workload_dict.get('agent', {})
+            status = agent.get('status', {})
+            filtered['agent'] = {
+                'version': status.get('agent_version'),
+                'last_heartbeat': status.get('last_heartbeat_on')
+            }
+        
+        # Services (open ports for security analysis)
+        services = workload_dict.get('services', {})
+        if services and services.get('open_service_ports'):
+            filtered['open_service_ports'] = services.get('open_service_ports')
+        
+        filtered_workloads.append(filtered)
+    
+    return filtered_workloads
+
 def to_dataframe(flows):
     """Convert traffic flows to pandas DataFrame"""
     logger.debug(f"Converting {len(flows)} flows to DataFrame")
