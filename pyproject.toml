@@ -12,8 +12,8 @@ dependencies = [
  "python-dotenv>=1.0.1",
 ]
 [[project.authors]]
-name = "alexgoller"
-email = "83632450+alexgoller@users.noreply.github.com"
+name = "lukeburciu"
+email = "31502276+lukeburciu@users.noreply.github.com"
 
 [build-system]
 requires = ["hatchling"]
@@ -21,7 +21,6 @@ build-backend = "hatchling.build"
 
 [project.scripts]
 illumio-mcp = "illumio_mcp:main"
-illumio-mcp-legacy = "illumio_mcp:main_legacy"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/illumio_mcp"]

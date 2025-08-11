@@ -1,13 +1,6 @@
-[![MseeP.ai Security Assessment Badge](https://mseep.net/pr/alexgoller-illumio-mcp-server-badge.png)](https://mseep.ai/app/alexgoller-illumio-mcp-server)
-
 # Illumio MCP Server
 
 A Model Context Protocol (MCP) server that provides an interface to interact with Illumio PCE (Policy Compute Engine). This server enables programmatic access to Illumio workload management, label operations, and traffic flow analysis.
-
-<a href="https://glama.ai/mcp/servers/xhqzxlo9iy">
-  <img width="380" height="200" src="https://glama.ai/mcp/servers/xhqzxlo9iy/badge" alt="Illumio Server MCP server" />
-</a>
-
 ## What can it do?
 
 Use conversational AI to talk to your PCE:
@@ -52,11 +45,10 @@ Add the following to the `custom_settings` section:
 ```json
 "mcpServers": {
     "illumio-mcp": {
-      "command": "uv",
+      "command": "uvx",
       "args": [
-        "--directory",
-        "/Users/alex.goller/git/illumio-mcp",
-        "run",
+        "--from",
+        "git+https://github.com/lukeburciu/illumio-mcp-server@main",
         "illumio-mcp"
       ],
       "env": {
@@ -65,7 +57,7 @@ Add the following to the `custom_settings` section:
         "PCE_ORG_ID": "1", # your org id
         "API_KEY": "api_key",
         "API_SECRET": "api_secret",
-        "READ_ONLY": "false" # Optional: Set to "true" to enable read-only mode
+        "READ_ONLY": "false" // Optional: Set to "true" to enable read-only mode
       }
     }
   }
