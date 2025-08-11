@@ -64,12 +64,31 @@ Add the following to the `custom_settings` section:
         "PCE_PORT": "your-pce-port",
         "PCE_ORG_ID": "1", # your org id
         "API_KEY": "api_key",
-        "API_SECRET": "api_secret"
+        "API_SECRET": "api_secret",
+        "READ_ONLY": "false" # Optional: Set to "true" to enable read-only mode
       }
     }
   }
 }
 ```
+
+### Read-Only Mode
+
+The server supports a read-only mode that prevents any modifications to the PCE environment. This is useful for:
+- Testing and development environments
+- Providing read-only access to users who should only view data
+- Safety when exploring the PCE without risk of accidental changes
+
+To enable read-only mode, set the `READ_ONLY` environment variable to `true`, `1`, or `yes`.
+
+When read-only mode is enabled, the following operations will be blocked:
+- Creating, updating, or deleting workloads
+- Creating, updating, or deleting labels
+- Creating, updating, or deleting rulesets
+- Creating, updating, or deleting IP lists
+- Any other operations that modify the PCE state
+
+All read operations (get, list, search, analyze) remain available in read-only mode.
 
 ## Features
 
@@ -323,6 +342,7 @@ PCE_PORT=your-pce-port
 PCE_ORG_ID=1
 API_KEY=your-api-key
 API_SECRET=your-api-secret
+# READ_ONLY=true  # Uncomment to enable read-only mode
 ```
 
 2. Add the following configuration to your Claude Desktop config file:
@@ -459,6 +479,7 @@ PCE_PORT=your-pce-port
 PCE_ORG_ID=1
 API_KEY=your-api-key
 API_SECRET=your-api-secret
+# READ_ONLY=true  # Uncomment to enable read-only mode
 ```
 
 The configuration:

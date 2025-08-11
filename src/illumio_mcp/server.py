@@ -53,6 +53,7 @@ PCE_PORT = os.getenv("PCE_PORT")
 PCE_ORG_ID = os.getenv("PCE_ORG_ID")
 API_KEY = os.getenv("API_KEY")
 API_SECRET = os.getenv("API_SECRET")
+READ_ONLY = os.getenv("READ_ONLY", "false").lower() in ["true", "1", "yes"]
 
 MCP_BUG_MAX_RESULTS = 500
 
@@ -61,6 +62,10 @@ notes: dict[str, str] = {}
 
 server = Server("illumio-mcp")
 logging.debug("Server initialized")
+if READ_ONLY:
+    logger.info("Server running in READ-ONLY mode - all modifying operations are disabled")
+else:
+    logger.info("Server running in READ-WRITE mode")
 
 @server.list_prompts()
 async def handle_list_prompts() -> list[types.Prompt]:
@@ -836,6 +841,23 @@ async def handle_call_tool(
     name: str, arguments: dict | None
 ) -> list[types.TextContent | types.ImageContent | types.EmbeddedResource]:
     logger.debug(f"Handling tool call: {name} with arguments: {arguments}")
+    
+    # List of operations that modify the PCE environment
+    modifying_operations = [
+        "add-note", "create-workload", "update-workload", "delete-workload",
+        "create-label", "delete-label", "update-label",
+        "create-ruleset", "update-ruleset", "delete-ruleset",
+        "create-iplist", "update-iplist", "delete-iplist"
+    ]
+    
+    # Check if read-only mode is enabled and block modifying operations
+    if READ_ONLY and name in modifying_operations:
+        error_msg = f"Operation '{name}' is not allowed in read-only mode"
+        logger.warning(f"Blocked operation in read-only mode: {name}")
+        return [types.TextContent(
+            type="text",
+            text=f"Error: {error_msg}"
+        )]
     
     if name == "get-workloads":
         # harmonize the logging
