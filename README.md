@@ -55,8 +55,8 @@ Add the following to the `custom_settings` section:
         "PCE_HOST": "your-pce-host",
         "PCE_PORT": "your-pce-port",
         "PCE_ORG_ID": "1", # your org id
-        "API_KEY": "api_key",
-        "API_SECRET": "api_secret",
+        "API_KEY": "${API_KEY}",
+        "API_SECRET": "${API_SECRET}",
         "READ_ONLY": "false" // Optional: Set to "true" to enable read-only mode
       }
     }
@@ -167,13 +167,6 @@ Set logging level to DEBUG in the code or environment for detailed operation log
 4. Push to the branch
 5. Create a Pull Request
 
-## License
-
-This project is licensed under the GPL-3.0 License. See the [LICENSE](LICENSE) file for details.
-
-## Support
-
-For support, please [create an issue](https://github.com/illumio/illumio-mcp/issues).
 
 # Examples
 
