@@ -198,7 +198,7 @@ async def get_workloads(name: str) -> str:
         return f"Error: {error_msg}"
 
 @mcp.tool
-async def get_workload_by_label(
+async def get_workloads_by_label(
     app: Optional[str] = None,
     env: Optional[str] = None,
     role: Optional[str] = None,
