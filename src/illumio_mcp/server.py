@@ -81,21 +81,7 @@ if READ_ONLY:
 else:
     logger.info("Server running in READ-WRITE mode")
 
-# List of operations that modify the PCE environment
-MODIFYING_OPERATIONS = {
-    "add_note", "create_workload", "update_workload", "delete_workload",
-    "create_label", "delete_label", "update_label",
-    "create_ruleset", "update_ruleset", "delete_ruleset",
-    "create_iplist", "update_iplist", "delete_iplist"
-}
-
-def check_read_only(operation_name: str) -> Optional[str]:
-    """Check if operation is allowed in read-only mode"""
-    if READ_ONLY and operation_name in MODIFYING_OPERATIONS:
-        error_msg = f"Operation '{operation_name}' is not allowed in read-only mode"
-        logger.warning(f"Blocked operation in read-only mode: {operation_name}")
-        return error_msg
-    return None
+# Note: Modifying operations are now controlled via @mcp.tool(enabled=not READ_ONLY)
 
 def get_pce_connection():
     """Get a connected PCE instance"""
@@ -172,12 +158,9 @@ def summarize_notes(style: str = "brief") -> str:
 
 # ========== TOOLS ==========
 
-@mcp.tool
+@mcp.tool(enabled=not READ_ONLY)
 async def add_note(name: str, content: str) -> str:
     """Add a new note"""
-    if error := check_read_only("add_note"):
-        return f"Error: {error}"
-    
     notes[name] = content
     return f"Note '{name}' added successfully"
 
@@ -228,12 +211,9 @@ async def get_labels() -> str:
         logger.error(error_msg, exc_info=True)
         return f"Error: {error_msg}"
 
-@mcp.tool
+@mcp.tool(enabled=not READ_ONLY)
 async def create_label(key: str, value: str) -> str:
     """Create a label of a specific type and value in the PCE"""
-    if error := check_read_only("create_label"):
-        return f"Error: {error}"
-    
     logger.debug(f"Creating label with key: {key} and value: {value}")
     try:
         pce = get_pce_connection()
@@ -246,12 +226,9 @@ async def create_label(key: str, value: str) -> str:
         logger.error(error_msg, exc_info=True)
         return f"Error: {error_msg}"
 
-@mcp.tool
+@mcp.tool(enabled=not READ_ONLY)
 async def delete_label(key: str, value: str) -> str:
     """Delete a label in the PCE"""
-    if error := check_read_only("delete_label"):
-        return f"Error: {error}"
-    
     logger.debug(f"Deleting label with key: {key} and value: {value}")
     try:
         pce = get_pce_connection()
@@ -266,7 +243,7 @@ async def delete_label(key: str, value: str) -> str:
         logger.error(error_msg, exc_info=True)
         return f"Error: {error_msg}"
 
-@mcp.tool
+@mcp.tool(enabled=not READ_ONLY)
 async def update_label(
     key: str,
     value: str,
@@ -274,9 +251,6 @@ async def update_label(
     new_key: Optional[str] = None
 ) -> str:
     """Update a label in the PCE - change key or value"""
-    if error := check_read_only("update_label"):
-        return f"Error: {error}"
-    
     logger.debug(f"Updating label with key: {key} and value: {value}")
     try:
         pce = get_pce_connection()
@@ -300,16 +274,13 @@ async def update_label(
         logger.error(error_msg, exc_info=True)
         return f"Error: {error_msg}"
 
-@mcp.tool
+@mcp.tool(enabled=not READ_ONLY)
 async def create_workload(
     name: str,
     ip_addresses: List[str],
     labels: List[Dict[str, str]] = None
 ) -> str:
     """Create an Illumio Core unmanaged workload in the PCE"""
-    if error := check_read_only("create_workload"):
-        return f"Error: {error}"
-    
     logger.debug(f"Creating workload with name: {name} and ip_addresses: {ip_addresses}")
     logger.debug(f"Labels: {labels}")
     
@@ -355,16 +326,13 @@ async def create_workload(
         logger.error(error_msg, exc_info=True)
         return f"Error: {error_msg}"
 
-@mcp.tool
+@mcp.tool(enabled=not READ_ONLY)
 async def update_workload(
     name: str,
     ip_addresses: List[str],
     labels: List[Dict[str, str]] = None
 ) -> str:
     """Update a workload in the PCE"""
-    if error := check_read_only("update_workload"):
-        return f"Error: {error}"
-    
     logger.debug(f"Updating workload with name: {name} and ip_addresses: {ip_addresses}")
     logger.debug(f"Labels: {labels}")
     
@@ -406,12 +374,9 @@ async def update_workload(
         logger.error(error_msg, exc_info=True)
         return f"Error: {error_msg}"
 
-@mcp.tool
+@mcp.tool(enabled=not READ_ONLY)
 async def delete_workload(name: str) -> str:
     """Delete a workload from the PCE"""
-    if error := check_read_only("delete_workload"):
-        return f"Error: {error}"
-    
     logger.debug(f"Deleting workload with name: {name}")
     try:
         pce = get_pce_connection()
@@ -479,7 +444,7 @@ async def get_rulesets(
         logger.error(error_msg, exc_info=True)
         return f"Error: {error_msg}"
 
-@mcp.tool
+@mcp.tool(enabled=not READ_ONLY)
 async def create_ruleset(
     name: str,
     scopes: List[List[Dict[str, str]]],
@@ -488,9 +453,6 @@ async def create_ruleset(
     description: Optional[str] = None
 ) -> str:
     """Create a ruleset in the PCE"""
-    if error := check_read_only("create_ruleset"):
-        return f"Error: {error}"
-    
     logger.debug(f"Creating ruleset: {name}")
     
     try:
@@ -519,7 +481,7 @@ async def create_ruleset(
         logger.error(error_msg, exc_info=True)
         return f"Error: {error_msg}"
 
-@mcp.tool
+@mcp.tool(enabled=not READ_ONLY)
 async def update_ruleset(
     href: str,
     name: Optional[str] = None,
@@ -529,9 +491,6 @@ async def update_ruleset(
     description: Optional[str] = None
 ) -> str:
     """Update a ruleset in the PCE"""
-    if error := check_read_only("update_ruleset"):
-        return f"Error: {error}"
-    
     logger.debug(f"Updating ruleset: {href}")
     
     try:
@@ -569,12 +528,9 @@ async def update_ruleset(
         logger.error(error_msg, exc_info=True)
         return f"Error: {error_msg}"
 
-@mcp.tool
+@mcp.tool(enabled=not READ_ONLY)
 async def delete_ruleset(href: Optional[str] = None, name: Optional[str] = None) -> str:
     """Delete a ruleset from the PCE"""
-    if error := check_read_only("delete_ruleset"):
-        return f"Error: {error}"
-    
     logger.debug(f"Deleting ruleset - href: {href}, name: {name}")
     
     try:
@@ -640,7 +596,7 @@ async def get_iplists(
         logger.error(error_msg, exc_info=True)
         return f"Error: {error_msg}"
 
-@mcp.tool
+@mcp.tool(enabled=not READ_ONLY)
 async def create_iplist(
     name: str,
     ip_ranges: Optional[List[Dict[str, str]]] = None,
@@ -648,9 +604,6 @@ async def create_iplist(
     description: Optional[str] = None
 ) -> str:
     """Create an IP list in the PCE"""
-    if error := check_read_only("create_iplist"):
-        return f"Error: {error}"
-    
     logger.debug(f"Creating IP list: {name}")
     
     try:
@@ -677,7 +630,7 @@ async def create_iplist(
         logger.error(error_msg, exc_info=True)
         return f"Error: {error_msg}"
 
-@mcp.tool
+@mcp.tool(enabled=not READ_ONLY)
 async def update_iplist(
     href: str,
     name: Optional[str] = None,
@@ -686,9 +639,6 @@ async def update_iplist(
     description: Optional[str] = None
 ) -> str:
     """Update an IP list in the PCE"""
-    if error := check_read_only("update_iplist"):
-        return f"Error: {error}"
-    
     logger.debug(f"Updating IP list: {href}")
     
     try:
@@ -724,12 +674,9 @@ async def update_iplist(
         logger.error(error_msg, exc_info=True)
         return f"Error: {error_msg}"
 
-@mcp.tool
+@mcp.tool(enabled=not READ_ONLY)
 async def delete_iplist(href: str) -> str:
     """Delete an IP list from the PCE"""
-    if error := check_read_only("delete_iplist"):
-        return f"Error: {error}"
-    
     logger.debug(f"Deleting IP list: {href}")
     
     try:
