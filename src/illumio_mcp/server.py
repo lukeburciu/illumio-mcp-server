@@ -198,6 +198,50 @@ async def get_workloads(name: str) -> str:
         return f"Error: {error_msg}"
 
 @mcp.tool
+async def get_workload_by_label(
+    app: Optional[str] = None,
+    env: Optional[str] = None,
+    role: Optional[str] = None,
+    loc: Optional[str] = None,
+    max_results: int = 10000
+) -> str:
+    """Get workloads from the PCE filtered by label values"""
+    logger.debug("=" * 80)
+    logger.debug("GET WORKLOAD BY LABEL CALLED")
+    logger.debug(f"Arguments received: app={app}, env={env}, role={role}, loc={loc}, max_results={max_results}")
+    logger.debug("=" * 80)
+    
+    try:
+        pce = get_pce_connection()
+        logger.debug("Fetching workloads with label filters from PCE")
+        
+        # Build query parameters
+        params = {"include": "labels", "max_results": max_results}
+        
+        # Add label filters to params
+        if app:
+            params["app"] = app
+        if env:
+            params["env"] = env  
+        if role:
+            params["role"] = role
+        if loc:
+            params["loc"] = loc
+        
+        workloads = pce.workloads.get(params=params)
+        logger.debug(f"Successfully retrieved {len(workloads)} workloads with label filters")
+        
+        # Use custom encoder for proper JSON serialization
+        encoder = IllumioJSONEncoder()
+        workloads_json = encoder.encode(workloads)
+        
+        return f"Workloads: {workloads_json}"
+    except Exception as e:
+        error_msg = f"Failed in PCE operation: {str(e)}"
+        logger.error(error_msg, exc_info=True)
+        return f"Error: {error_msg}"
+
+@mcp.tool
 async def get_labels() -> str:
     """Get all labels from PCE"""
     logger.debug("Getting labels from PCE")
