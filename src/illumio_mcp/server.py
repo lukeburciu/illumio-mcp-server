@@ -231,14 +231,18 @@ async def get_workloads_by_label(
         workloads = pce.workloads.get(params=params)
         logger.debug(f"Successfully retrieved {len(workloads)} workloads with label filters")
         
-        # Filter to essential fields only
-        filtered_workloads = filter_workload_fields(workloads)
-        
-        # Use custom encoder for proper JSON serialization
+        # Use custom encoder for proper JSON serialization first
         encoder = IllumioJSONEncoder()
-        workloads_json = encoder.encode(filtered_workloads)
+        workloads_json = encoder.encode(workloads)
         
-        return f"Workloads: {workloads_json}"
+        # Parse JSON and filter fields
+        workloads_data = json.loads(workloads_json)
+        filtered_workloads = filter_workload_fields(workloads_data)
+        
+        # Re-encode filtered data
+        filtered_json = json.dumps(filtered_workloads)
+        
+        return f"Workloads: {filtered_json}"
     except Exception as e:
         error_msg = f"Failed in PCE operation: {str(e)}"
         logger.error(error_msg, exc_info=True)
