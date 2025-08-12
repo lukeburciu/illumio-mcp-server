@@ -215,18 +215,25 @@ async def get_workloads_by_label(
         pce = get_pce_connection()
         logger.debug("Fetching workloads with label filters from PCE")
         
-        # Build query parameters with label filters as key:value pairs
+        # Build query parameters
         params = {"include": "labels", "max_results": max_results}
         
-        # Add label filters directly as key:value pairs
-        if app is not None:
-            params["app"] = app
-        if env is not None:
-            params["env"] = env  
-        if role is not None:
-            params["role"] = role
-        if loc is not None:
-            params["loc"] = loc
+        # Get all labels first to find URIs for the specified values
+        all_labels = pce.labels.get()
+        label_uris = []
+        
+        # Find URIs for matching label values
+        for label in all_labels:
+            if hasattr(label, 'key') and hasattr(label, 'value') and hasattr(label, 'href'):
+                if (app and label.key == 'app' and label.value == app) or \
+                   (env and label.key == 'env' and label.value == env) or \
+                   (role and label.key == 'role' and label.value == role) or \
+                   (loc and label.key == 'loc' and label.value == loc):
+                    label_uris.append(label.href)
+        
+        # Add labels parameter as JSON string if we found matching labels
+        if label_uris:
+            params["labels"] = json.dumps([label_uris])
         
         workloads = pce.workloads.get(params=params)
         
