@@ -287,27 +287,26 @@ async def get_label(
     value: Optional[str] = None
 ) -> str:
     """Get labels from PCE filtered by key and/or value. Value parameter supports partial matches."""
-    logger.debug(f"Getting labels with filters - key: {key}, value: {value}")
-    
+    logger.debug(f"Getting labels with filters - key: '{key}', value: '{value}'")
     try:
         pce = get_pce_connection()
-        
         # Build query parameters as key:value pairs
         params = {}
         if key is not None and value is not None:
-            params[key] = value
-        
+            params[key] = value  # Use the key parameter as the actual key
+        elif value is not None:
+            params["value"] = value  # Default to "value" key when only value provided
+
         # Make API call with filters
         if params:
             labels = pce.labels.get(params=params)
         else:
             labels = pce.labels.get()
-        
+            
         # Handle different response types
         if hasattr(labels, '__len__'):
             count = len(labels)
             logger.debug(f"Successfully retrieved {count} labels")
-            
             # Format output based on data structure
             if isinstance(labels, list):
                 return f"Found {count} labels: {labels}"
