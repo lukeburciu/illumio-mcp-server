@@ -215,21 +215,27 @@ async def get_workloads_by_label(
         pce = get_pce_connection()
         logger.debug("Fetching workloads with label filters from PCE")
         
-        # Build query parameters
+        # Build query parameters with label filters as key:value pairs
         params = {"include": "labels", "max_results": max_results}
         
-        # Add label filters to params
-        if app:
+        # Add label filters directly as key:value pairs
+        if app is not None:
             params["app"] = app
-        if env:
+        if env is not None:
             params["env"] = env  
-        if role:
+        if role is not None:
             params["role"] = role
-        if loc:
+        if loc is not None:
             params["loc"] = loc
         
         workloads = pce.workloads.get(params=params)
-        logger.debug(f"Successfully retrieved {len(workloads)} workloads with label filters")
+        
+        # Handle different response types
+        if hasattr(workloads, '__len__'):
+            count = len(workloads)
+            logger.debug(f"Successfully retrieved {count} workloads with label filters")
+        else:
+            logger.debug("Successfully retrieved workloads with label filters (count unknown)")
         
         # Use custom encoder for proper JSON serialization first
         encoder = IllumioJSONEncoder()
@@ -243,8 +249,21 @@ async def get_workloads_by_label(
         filtered_json = json.dumps(filtered_workloads)
         
         return f"Workloads: {filtered_json}"
+        
+    except AttributeError as e:
+        error_msg = f"PCE API method not found: {str(e)}"
+        logger.error(error_msg, exc_info=True)
+        return f"Error: {error_msg}"
+    except ConnectionError as e:
+        error_msg = f"PCE connection failed: {str(e)}"
+        logger.error(error_msg, exc_info=True)
+        return f"Error: {error_msg}"
+    except json.JSONDecodeError as e:
+        error_msg = f"JSON parsing failed: {str(e)}"
+        logger.error(error_msg, exc_info=True)
+        return f"Error: {error_msg}"
     except Exception as e:
-        error_msg = f"Failed in PCE operation: {str(e)}"
+        error_msg = f"PCE operation failed: {str(e)}"
         logger.error(error_msg, exc_info=True)
         return f"Error: {error_msg}"
 
@@ -259,6 +278,55 @@ async def get_labels() -> str:
         return f"Labels: {labels}"
     except Exception as e:
         error_msg = f"Failed in PCE operation: {str(e)}"
+        logger.error(error_msg, exc_info=True)
+        return f"Error: {error_msg}"
+
+@mcp.tool
+async def get_label(
+    key: Optional[str] = None,
+    value: Optional[str] = None
+) -> str:
+    """Get labels from PCE filtered by key and/or value. Value parameter supports partial matches."""
+    logger.debug(f"Getting labels with filters - key: {key}, value: {value}")
+    
+    try:
+        pce = get_pce_connection()
+        
+        # Build query parameters as key:value pairs
+        params = {}
+        if key is not None and value is not None:
+            params[key] = value
+        
+        # Make API call with filters
+        if params:
+            labels = pce.labels.get(params=params)
+        else:
+            labels = pce.labels.get()
+        
+        # Handle different response types
+        if hasattr(labels, '__len__'):
+            count = len(labels)
+            logger.debug(f"Successfully retrieved {count} labels")
+            
+            # Format output based on data structure
+            if isinstance(labels, list):
+                return f"Found {count} labels: {labels}"
+            else:
+                return f"Labels ({count}): {labels}"
+        else:
+            logger.debug("Successfully retrieved labels (count unknown)")
+            return f"Labels: {labels}"
+            
+    except AttributeError as e:
+        error_msg = f"PCE API method not found: {str(e)}"
+        logger.error(error_msg, exc_info=True)
+        return f"Error: {error_msg}"
+    except ConnectionError as e:
+        error_msg = f"PCE connection failed: {str(e)}"
+        logger.error(error_msg, exc_info=True)
+        return f"Error: {error_msg}"
+    except Exception as e:
+        error_msg = f"PCE operation failed: {str(e)}"
         logger.error(error_msg, exc_info=True)
         return f"Error: {error_msg}"
 
