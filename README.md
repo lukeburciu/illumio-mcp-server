@@ -39,6 +39,7 @@ You should run this using the `uv` command, which makes it easier to pass in env
 
 On MacOS: `~/Library/Application\ Support/Claude/claude_desktop_config.json`
 On Windows: `%APPDATA%/Claude/claude_desktop_config.json`
+On Claude Code: `$PROJECT_DIR/.mcp.json`
 
 Add the following to the `custom_settings` section:
 
@@ -54,7 +55,7 @@ Add the following to the `custom_settings` section:
       "env": {
         "PCE_HOST": "your-pce-host",
         "PCE_PORT": "your-pce-port",
-        "PCE_ORG_ID": "1", # your org id
+        "PCE_ORG_ID": "1", // your org id
         "API_KEY": "${API_KEY}",
         "API_SECRET": "${API_SECRET}",
         "READ_ONLY": "false" // Optional: Set to "true" to enable read-only mode
@@ -299,22 +300,6 @@ Step 4: Click Submit to send the configured prompt
 
 This workflow enables automated context sharing between Illumio systems and Claude for application traffic analysis and ringfencing tasks.
 
-## Docker
-
-The application is available as a Docker container from the GitHub Container Registry.
-
-### Pull the container
-
-```bash
-docker pull ghcr.io/alexgoller/illumio-mcp-server:latest
-```
-
-You can also use a specific version by replacing `latest` with a version number:
-
-```bash
-docker pull ghcr.io/alexgoller/illumio-mcp-server:1.0.0
-```
-
 ### Run with Claude Desktop
 
 To use the container with Claude Desktop, you'll need to:
@@ -363,43 +348,6 @@ Make sure to:
 - Create the log directory (e.g. `~/tmp`)
 - Adjust the paths according to your system
 
-### Run Standalone
-
-You can also run the container directly:
-
-```bash
-docker run -i --init --rm \
-  -v /path/to/logs:/var/log/illumio-mcp \
-  -e DOCKER_CONTAINER=true \
-  -e PYTHONWARNINGS=ignore \
-  --env-file ~/.illumio-mcp.env \
-  ghcr.io/alexgoller/illumio-mcp-server:latest
-```
-
-### Docker Compose
-
-For development or testing, you can use Docker Compose. Create a `docker-compose.yml` file:
-
-```yaml
-version: '3'
-services:
-  illumio-mcp:
-    image: ghcr.io/alexgoller/illumio-mcp-server:latest
-    init: true
-    volumes:
-      - ./logs:/var/log/illumio-mcp
-    environment:
-      - DOCKER_CONTAINER=true
-      - PYTHONWARNINGS=ignore
-    env_file:
-      - ~/.illumio-mcp.env
-```
-
-Then run:
-
-```bash
-docker-compose up
-```
 
 ### Known Issues
 
