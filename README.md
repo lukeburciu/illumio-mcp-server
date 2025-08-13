@@ -1,50 +1,42 @@
 # Illumio MCP Server
 
-A Model Context Protocol (MCP) server that provides an interface to interact with Illumio PCE (Policy Compute Engine). This server enables programmatic access to Illumio workload management, label operations, and traffic flow analysis.
-## What can it do?
+A Model Context Protocol (MCP) server that provides a conversational AI interface to interact with Illumio PCE (Policy Compute Engine). This server enables programmatic access to workload management, label operations, traffic flow analysis, and security policy management through natural language.
 
-Use conversational AI to talk to your PCE:
+## Features
 
-- Create, update and delete workloads
-- Create, update and delete labels
-- Get traffic summaries and do security analysis on them
-- Get PCE health
+### 🎯 Core Capabilities
+- **Workload Management**: Create, update, delete, and query workloads
+- **Label Operations**: Manage labels for application segmentation
+- **Traffic Analysis**: Analyze traffic flows with detailed filtering and summaries
+- **Policy Management**: Create and manage rulesets and IP lists
+- **Security Analysis**: Generate security assessments and remediation plans
+- **Event Monitoring**: Track PCE events and system health
 
-## Prerequisites
+### 🛡️ Safety Features
+- **Read-Only Mode**: Safely explore PCE without risk of changes
+- **Comprehensive Error Handling**: Detailed logging and error reporting
+- **Input Validation**: Secure handling of all PCE operations
 
-- Python 3.8+
-- Access to an Illumio PCE instance
-- Valid API credentials for the PCE
+## Quick Start
 
-## Installation
-
-1. Clone the repository:
-
-```bash
-git clone [repository-url]
-cd illumio-mcp
-```
-
-2. Install dependencies:
+### Installation via UV (Recommended)
 
 ```bash
-pip install -r requirements.txt
+# Install directly from GitHub
+uvx --from git+https://github.com/lukeburciu/illumio-mcp-server@main illumio-mcp
 ```
 
-## Configuration
+### Claude Desktop Configuration
 
-You should run this using the `uv` command, which makes it easier to pass in environment variables and run it in the background.
+Add to your Claude Desktop config file:
 
-## Using uv and Claude Desktop
-
-On MacOS: `~/Library/Application\ Support/Claude/claude_desktop_config.json`
-On Windows: `%APPDATA%/Claude/claude_desktop_config.json`
-On Claude Code: `$PROJECT_DIR/.mcp.json`
-
-Add the following to the `custom_settings` section:
+**macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`  
+**Windows**: `%APPDATA%/Claude/claude_desktop_config.json`  
+**Claude Code**: `$PROJECT_DIR/.mcp.json`
 
 ```json
-"mcpServers": {
+{
+  "mcpServers": {
     "illumio-mcp": {
       "command": "uvx",
       "args": [
@@ -53,371 +45,223 @@ Add the following to the `custom_settings` section:
         "illumio-mcp"
       ],
       "env": {
-        "PCE_HOST": "your-pce-host",
-        "PCE_PORT": "your-pce-port",
-        "PCE_ORG_ID": "1", // your org id
-        "API_KEY": "${API_KEY}",
-        "API_SECRET": "${API_SECRET}",
-        "READ_ONLY": "false" // Optional: Set to "true" to enable read-only mode
+        "PCE_HOST": "your-pce-host.com",
+        "PCE_PORT": "443",
+        "PCE_ORG_ID": "1",
+        "API_KEY": "your-api-key",
+        "API_SECRET": "your-api-secret",
+        "READ_ONLY": "false"
       }
     }
   }
 }
 ```
 
-### Read-Only Mode
+## Environment Variables
 
-The server supports a read-only mode that prevents any modifications to the PCE environment. This is useful for:
-- Testing and development environments
-- Providing read-only access to users who should only view data
-- Safety when exploring the PCE without risk of accidental changes
+| Variable | Description | Default | Required |
+|----------|-------------|---------|----------|
+| `PCE_HOST` | PCE hostname | - | ✅ |
+| `PCE_PORT` | PCE port | 443 | ❌ |
+| `PCE_ORG_ID` | Organization ID | 1 | ❌ |
+| `API_KEY` | API key for authentication | - | ✅ |
+| `API_SECRET` | API secret | - | ✅ |
+| `READ_ONLY` | Enable read-only mode | false | ❌ |
 
-To enable read-only mode, set the `READ_ONLY` environment variable to `true`, `1`, or `yes`.
+## Available Tools
 
-When read-only mode is enabled, the following operations will be blocked:
-- Creating, updating, or deleting workloads
-- Creating, updating, or deleting labels
-- Creating, updating, or deleting rulesets
-- Creating, updating, or deleting IP lists
-- Any other operations that modify the PCE state
+### Workload Management
+- **`get-workloads`**: Retrieve workloads with optional filtering
+- **`create-workload`**: Create unmanaged workloads with labels
+- **`update-workload`**: Modify existing workload properties
+- **`delete-workload`**: Remove workloads from PCE
 
-All read operations (get, list, search, analyze) remain available in read-only mode.
+### Label Operations
+- **`get-labels`**: List all labels in PCE
+- **`create-label`**: Create new key-value labels
+- **`delete-label`**: Remove existing labels
 
-## Features
-
-### Resources
-
-Resources are not finished yet and I will look into that later.
-
-- `illumio://workloads` - Get workloads from the PCE
-- `illumio://labels` - Get all labels from PCE
-
-### Tools
-
-#### Workload Management
-- `get-workloads` - Retrieve all workloads from PCE
-- `create-workload` - Create an unmanaged workload with specified name, IP addresses, and labels
-- `update-workload` - Update an existing workload's properties
-- `delete-workload` - Remove a workload from PCE by name
-
-#### Label Operations
-- `create-label` - Create a new label with key-value pair
-- `delete-label` - Remove an existing label by key-value pair
-- `get-labels` - Retrieve all labels from PCE
-
-#### Traffic Analysis
-- `get-traffic-flows` - Get detailed traffic flow data with comprehensive filtering options:
-  - Date range filtering
+### Traffic Analysis
+- **`get-traffic-flows`**: Detailed traffic flow data with filtering:
+  - Date range selection
   - Source/destination filtering
-  - Service (port/protocol) filtering
-  - Policy decision filtering
-  - Workload and IP list query options
-  - Results limiting
-  
-- `get-traffic-flows-summary` - Get summarized traffic flow information with the same filtering capabilities as get-traffic-flows
+  - Service and port filtering
+  - Policy decision analysis
+- **`get-traffic-flows-summary`**: Aggregated traffic summaries
 
-#### Policy Management
-- `get-rulesets` - Get rulesets from the PCE with optional filtering:
-  - Filter by name
-  - Filter by enabled status
+### Policy Management
+- **`get-rulesets`**: Query rulesets with name/status filtering
+- **`get-iplists`**: Manage IP lists with range filtering
 
-#### IP Lists Management
-- `get-iplists` - Get IP lists from the PCE with optional filtering:
-  - Filter by name
-  - Filter by description
-  - Filter by IP ranges
+### System Operations
+- **`check-pce-connection`**: Verify connectivity and credentials
+- **`get-events`**: Monitor PCE events by type/severity/status
 
-#### Connection Testing
-- `check-pce-connection` - Verify PCE connectivity and credentials
+## MCP Prompts
 
-#### Event Management
-- `get-events` - Get events from the PCE with optional filtering:
-  - Filter by event type (e.g., 'system_task.expire_service_account_api_keys')
-  - Filter by severity (emerg, alert, crit, err, warning, notice, info, debug)
-  - Filter by status (success, failure)
-  - Limit number of results returned
+### 🔒 Ringfence Application
+Creates comprehensive security policies to isolate applications:
+```
+Arguments:
+- application_name: Target application
+- application_environment: Target environment
 
-## Error Handling
+Creates:
+- Inter-tier communication rules
+- Inbound/outbound restrictions
+- External connection policies
+```
 
-The server implements comprehensive error handling and logging:
-- PCE connection issues
-- API authentication failures
-- Resource creation/update failures
-- Invalid input validation
+### 📊 Analyze Application Traffic
+Provides detailed traffic pattern analysis:
+```
+Arguments:
+- application_name: Application to analyze
+- application_environment: Environment to analyze
 
-All errors are logged with full stack traces and returned as formatted error messages to the client.
+Returns:
+- Traffic flow patterns
+- Service identification
+- Label categorization
+- Internet exposure status
+```
+
+### Using Prompts in Claude Desktop
+
+1. Click "Attach from MCP" button
+2. Select "illumio-mcp" from available servers
+3. Choose your prompt (e.g., "analyze-application-traffic")
+4. Fill in required parameters
+5. Submit to generate analysis
+
+## Read-Only Mode
+
+Enable safe exploration without modifications:
+
+```json
+"env": {
+  "READ_ONLY": "true"
+}
+```
+
+When enabled, blocks:
+- Workload creation/updates/deletion
+- Label modifications
+- Policy changes
+- Any PCE state modifications
+
+All read operations remain available.
 
 ## Development
 
-### Running Tests
-
-Testing is not implemented yet.
+### Local Development Setup
 
 ```bash
-python -m pytest tests/
+# Clone repository
+git clone https://github.com/lukeburciu/illumio-mcp-server
+cd illumio-mcp-server
+
+# Install with UV
+uv pip install -e .
+
+# Run locally
+uv run illumio-mcp
 ```
 
-### Debug Mode
-Set logging level to DEBUG in the code or environment for detailed operation logs.
+### Running Tests
+
+```bash
+uv run python test_server.py
+```
+
+### Project Structure
+
+```
+src/illumio_mcp/
+├── server.py           # Main FastMCP entry point
+├── core/              # Core functionality
+│   ├── config.py      # Environment configuration
+│   ├── connection.py  # PCE connection management
+│   └── logging.py     # Centralized logging
+├── tools/             # MCP tool implementations
+│   ├── workloads.py   # Workload operations
+│   ├── labels.py      # Label management
+│   ├── policies.py    # Policy operations
+│   ├── traffic.py     # Traffic analysis
+│   └── misc.py        # Utility tools
+└── prompts/           # MCP prompt definitions
+```
+
+## Use Cases
+
+### Security Analysis
+- Generate compliance reports (PCI, SWIFT, etc.)
+- Identify high-risk vulnerabilities
+- Create remediation plans
+- Analyze application dependencies
+
+### Infrastructure Management
+- Monitor service communications
+- Track workload metrics
+- Manage segmentation policies
+- Audit label usage
+
+### Traffic Intelligence
+- Identify unknown services
+- Map application flows
+- Detect policy violations
+- Optimize rule sets
+
+## Visual Examples
+
+The server enables creation of rich visualizations through Claude Desktop:
+
+- **Application Analysis**: Communication patterns and dependencies
+- **Security Assessments**: Compliance reports and risk findings
+- **Traffic Patterns**: Service role inference and flow analysis
+- **Policy Management**: Ruleset organization and IP list management
+- **Workload Insights**: Detailed metrics and traffic identification
+
+## Troubleshooting
+
+### Connection Issues
+1. Verify PCE_HOST is accessible
+2. Check API credentials are valid
+3. Confirm PCE_ORG_ID is correct
+4. Use `check-pce-connection` tool to diagnose
+
+### Permission Errors
+- Ensure API key has required permissions
+- Enable READ_ONLY mode for testing
+- Check PCE role assignments
+
+### Common Errors
+- **"Resource not found"**: Verify resource names/IDs
+- **"Authentication failed"**: Check API_KEY and API_SECRET
+- **"Connection timeout"**: Verify network connectivity to PCE
 
 ## Contributing
 
 1. Fork the repository
-2. Create a feature branch
-3. Commit your changes
-4. Push to the branch
-5. Create a Pull Request
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit changes (`git commit -m 'Add amazing feature'`)
+4. Push to branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
 
+## License
 
-# Examples
+[License information to be added]
 
-## Visual Examples
+## Support
 
-All the examples below were generated by Claude Desktop 3.5 Sonnet and with data obtained through this MCP server. I found out that rendering the data to react components is resulting in beautiful visualizations and results.
+For issues and questions:
+- Open an issue on [GitHub](https://github.com/lukeburciu/illumio-mcp-server/issues)
+- Check existing documentation in `/docs`
+- Review CLAUDE.md for development guidelines
 
-### Application Analysis
-![Application Analysis](images/application-analysis.png)
-*Detailed view of application communication patterns and dependencies*
+## Acknowledgments
 
-![Application Tier Analysis](images/application-tier-analysis.png)
-*Analysis of traffic patterns between different application tiers*
-
-### Infrastructure Insights
-![Infrastructure Analysis Dashboard](images/infrastrcture-analysis-dashboard.png)
-*Overview dashboard showing key infrastructure metrics and status*
-
-![Infrastructure Services](images/infrastructure-services-analysis.png)
-*Detailed analysis of infrastructure service communications*
-
-### Security Assessment
-![Security Analysis Report](images/security-analysis-report.png)
-*Comprehensive security analysis report*
-
-![High Risk Findings](images/security-assessment-findings-high-risk.png)
-*Security assessment findings for high-risk vulnerabilities*
-
-![PCI Compliance](images/security-assessment-findings-pci.png)
-*PCI compliance assessment findings*
-
-![SWIFT Compliance](images/security-assessment-findings-swift.png)
-*SWIFT compliance assessment findings*
-
-### Remediation Planning
-![Remediation Plan Overview](images/security-remediation-plan.png)
-*Overview of security remediation planning*
-
-![Detailed Remediation Steps](images/security-remediation-plan-2.png)
-*Detailed steps for security remediation implementation*
-
-### Policy Management
-![IP Lists Overview](images/iplists-overview.png)
-*Management interface for IP lists*
-
-![Ruleset Categories](images/ruleset-categories.png)
-*Overview of ruleset categories and organization*
-
-![Application Ruleset Ordering](images/ordering-application-ruleset-overview.png)
-*Configuration of application ruleset ordering*
-
-### Workload Management
-![Workload Analysis](images/workload-analysis.png)
-*Detailed workload analysis and metrics*
-
-![Workload Traffic](images/workload-traffic-identification.png)
-*Identification and analysis of workload traffic patterns*
-
-### Label Management
-![PCE Labels by Type](images/pce-labels-by-type.png)
-*Organization of PCE labels by type and category*
-
-### Service Analysis
-![Service Role Inference](images/service-role-inference.png)
-*Automatic inference of service roles based on traffic patterns*
-
-![Top Sources and Destinations](images/top-5-sources-and-destinations.png)
-*Analysis of top 5 traffic sources and destinations*
-
-### Project Planning
-![Project Plan](images/project-plan-mermaid.png)
-*Project implementation timeline and milestones*
-
-## Available Prompts
-
-### Ringfence Application
-The `ringfence-application` prompt helps create security policies to isolate and protect applications by controlling inbound and outbound traffic.
-
-**Required Arguments:**
-- `application_name`: Name of the application to ringfence
-- `application_environment`: Environment of the application to ringfence
-
-**Features:**
-- Creates rules for inter-tier communication within the application
-- Uses traffic flows to identify required external connections
-- Implements inbound traffic restrictions based on source applications
-- Creates outbound traffic rules for necessary external communications
-- Handles both intra-scope (same app/env) and extra-scope (external) connections
-- Creates separate rulesets for remote application connections
-
-### Analyze Application Traffic
-The `analyze-application-traffic` prompt provides detailed analysis of application traffic patterns and connectivity.
-
-**Required Arguments:**
-- `application_name`: Name of the application to analyze
-- `application_environment`: Environment of the application to analyze
-
-**Analysis Features:**
-- Orders traffic by inbound and outbound flows
-- Groups by application/environment/role combinations
-- Identifies relevant label types and patterns
-- Displays results in a React component format
-- Shows protocol and port information
-- Attempts to identify known service patterns (e.g., Nagios on port 5666)
-- Categorizes traffic into infrastructure and application types
-- Determines internet exposure
-- Displays Illumio role, application, and environment labels
-
-### How to use MCP prompts
-
-Step1: Click "Attach from MCP" button in the interface
-
-![MCP Prompt Workflow](images/prompts-finding-prompt-menu.png)
-
-Step 2: Choose from installed MCP servers
-
-![MCP Prompt Workflow](images/prompts-choose-integration.png)
-
-Step 3: Fill in required prompt arguments:
-
-![MCP Prompt Workflow](images/prompts-required-parameters.png)
-
-Step 4: Click Submit to send the configured prompt
-
-### How prompts work
-
-- The MCP server sends the configured prompt to Claude
-- Claude receives context through the Model Context Protocol
-- Allows specialized handling of Illumio-specific tasks
-
-This workflow enables automated context sharing between Illumio systems and Claude for application traffic analysis and ringfencing tasks.
-
-### Run with Claude Desktop
-
-To use the container with Claude Desktop, you'll need to:
-
-1. Create an environment file (e.g. `~/.illumio-mcp.env`) with your PCE credentials:
-
-```env
-PCE_HOST=your-pce-host
-PCE_PORT=your-pce-port
-PCE_ORG_ID=1
-API_KEY=your-api-key
-API_SECRET=your-api-secret
-# READ_ONLY=true  # Uncomment to enable read-only mode
-```
-
-2. Add the following configuration to your Claude Desktop config file:
-
-On MacOS (`~/Library/Application Support/Claude/claude_desktop_config.json`):
-```json
-{
-    "mcpServers": {
-        "illumio-mcp-docker": {
-            "command": "docker",
-            "args": [
-                "run",
-                "-i",
-                "--init",
-                "--rm",
-                "-v",
-                "/Users/YOUR_USERNAME/tmp:/var/log/illumio-mcp",
-                "-e",
-                "DOCKER_CONTAINER=true",
-                "-e",
-                "PYTHONWARNINGS=ignore",
-                "--env-file",
-                "/Users/YOUR_USERNAME/.illumio-mcp.env",
-                "illumio-mcp:latest"
-            ]
-        }
-    }
-}
-```
-
-Make sure to:
-- Replace `YOUR_USERNAME` with your actual username
-- Create the log directory (e.g. `~/tmp`)
-- Adjust the paths according to your system
-
-
-### Known Issues
-
-When running the container, you may see syntax warnings from the Illumio SDK's regular expressions. These warnings don't affect functionality and are automatically suppressed in the container.
-
-If you're seeing the warnings when running the container, you can manually suppress them by adding:
-
-```bash
-docker run \
-  -e PYTHONWARNINGS=ignore \
-  ... other environment variables ...
-  ghcr.io/alexgoller/illumio-mcp-server:latest
-```
-
-Or in docker-compose.yml:
-
-```yaml
-services:
-  illumio-mcp:
-    environment:
-      - PYTHONWARNINGS=ignore
-      # ... other environment variables ...
-```
-
-### Claude Desktop Configuration
-
-For Claude Desktop users, add this configuration to your Claude Desktop config file:
-
-```json
-{
-    "mcpServers": {
-        "illumio-mcp-docker": {
-            "command": "docker",
-            "args": [
-                "run",
-                "-i",
-                "--init",
-                "--rm",
-                "-v",
-                "/Users/YOUR_USERNAME/tmp:/var/log/illumio-mcp",
-                "-e",
-                "DOCKER_CONTAINER=true",
-                "-e",
-                "PYTHONWARNINGS=ignore",
-                "--env-file",
-                "/Users/YOUR_USERNAME/.illumio-mcp.env",
-                "illumio-mcp:latest"
-            ]
-        }
-    }
-}
-```
-
-Make sure to:
-1. Replace `YOUR_USERNAME` with your actual username
-2. Create a log directory at `~/tmp` (or adjust the path as needed)
-3. Create an environment file at `~/.illumio-mcp.env` with your PCE credentials:
-
-```env
-PCE_HOST=your-pce-host
-PCE_PORT=your-pce-port
-PCE_ORG_ID=1
-API_KEY=your-api-key
-API_SECRET=your-api-secret
-# READ_ONLY=true  # Uncomment to enable read-only mode
-```
-
-The configuration:
-- Uses Docker to run the container
-- Mounts a local directory for logs
-- Suppresses Python warnings
-- Loads PCE credentials from an environment file
-- Enables proper container cleanup with `--init` and `--rm`
+Built with:
+- [FastMCP](https://github.com/jlowin/fastmcp) - MCP server framework
+- [Illumio SDK](https://github.com/illumio/illumio-py) - Python SDK for PCE
+- [Model Context Protocol](https://modelcontextprotocol.io) - AI integration protocol
