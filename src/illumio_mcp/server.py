@@ -198,6 +198,195 @@ async def get_workloads(name: str) -> str:
         return f"Error: {error_msg}"
 
 @mcp.tool
+async def get_managed_workloads_by_label(
+    app: Optional[str] = None,
+    env: Optional[str] = None,
+    role: Optional[str] = None,
+    loc: Optional[str] = None,
+    max_results: int = 10000
+) -> str:
+    """Get managed workloads from the PCE filtered by label values
+    
+    Retrieves only managed workloads (those with an agent installed and connected).
+    
+    Args:
+        app: Application label value to filter by
+        env: Environment label value to filter by
+        role: Role label value to filter by
+        loc: Location label value to filter by
+        max_results: Maximum number of results to return (default: 10000)
+    
+    Returns:
+        JSON string containing filtered managed workloads
+    """
+    logger.debug("=" * 80)
+    logger.debug("GET MANAGED WORKLOADS BY LABEL CALLED")
+    logger.debug(f"Arguments received: app={app}, env={env}, role={role}, loc={loc}, max_results={max_results}")
+    logger.debug("=" * 80)
+    
+    try:
+        pce = get_pce_connection()
+        logger.debug("Fetching managed workloads with label filters from PCE")
+        
+        # Build query parameters - include managed=true
+        params = {
+            "include": "labels",
+            "max_results": max_results,
+            "managed": "true"  # Only get managed workloads
+        }
+        
+        # Get all labels first to find URIs for the specified values
+        all_labels = pce.labels.get()
+        label_uris = []
+        
+        # Find URIs for matching label values
+        for label in all_labels:
+            if hasattr(label, 'key') and hasattr(label, 'value') and hasattr(label, 'href'):
+                if (app and label.key == 'app' and label.value == app) or \
+                   (env and label.key == 'env' and label.value == env) or \
+                   (role and label.key == 'role' and label.value == role) or \
+                   (loc and label.key == 'loc' and label.value == loc):
+                    label_uris.append(label.href)
+        
+        # Add labels parameter as JSON string if we found matching labels
+        if label_uris:
+            params["labels"] = json.dumps([label_uris])
+        
+        workloads = pce.workloads.get(params=params)
+        
+        # Handle different response types
+        if hasattr(workloads, '__len__'):
+            count = len(workloads)
+            logger.debug(f"Successfully retrieved {count} managed workloads with label filters")
+        else:
+            logger.debug("Successfully retrieved managed workloads with label filters (count unknown)")
+        
+        # Use custom encoder for proper JSON serialization first
+        encoder = IllumioJSONEncoder()
+        workloads_json = encoder.encode(workloads)
+        
+        # Parse JSON and filter fields
+        workloads_data = json.loads(workloads_json)
+        filtered_workloads = filter_workload_fields(workloads_data)
+        
+        # Re-encode filtered data
+        filtered_json = json.dumps(filtered_workloads)
+        
+        return f"Managed Workloads: {filtered_json}"
+        
+    except AttributeError as e:
+        error_msg = f"PCE API method not found: {str(e)}"
+        logger.error(error_msg, exc_info=True)
+        return f"Error: {error_msg}"
+    except ConnectionError as e:
+        error_msg = f"PCE connection failed: {str(e)}"
+        logger.error(error_msg, exc_info=True)
+        return f"Error: {error_msg}"
+    except json.JSONDecodeError as e:
+        error_msg = f"JSON parsing failed: {str(e)}"
+        logger.error(error_msg, exc_info=True)
+        return f"Error: {error_msg}"
+    except Exception as e:
+        error_msg = f"PCE operation failed: {str(e)}"
+        logger.error(error_msg, exc_info=True)
+        return f"Error: {error_msg}"
+
+
+@mcp.tool
+async def get_unmanaged_workloads_by_label(
+    app: Optional[str] = None,
+    env: Optional[str] = None,
+    role: Optional[str] = None,
+    loc: Optional[str] = None,
+    max_results: int = 10000
+) -> str:
+    """Get unmanaged workloads from the PCE filtered by label values
+    
+    Retrieves only unmanaged workloads (those without an agent or with disconnected agents).
+    
+    Args:
+        app: Application label value to filter by
+        env: Environment label value to filter by
+        role: Role label value to filter by
+        loc: Location label value to filter by
+        max_results: Maximum number of results to return (default: 10000)
+    
+    Returns:
+        JSON string containing filtered unmanaged workloads
+    """
+    logger.debug("=" * 80)
+    logger.debug("GET UNMANAGED WORKLOADS BY LABEL CALLED")
+    logger.debug(f"Arguments received: app={app}, env={env}, role={role}, loc={loc}, max_results={max_results}")
+    logger.debug("=" * 80)
+    
+    try:
+        pce = get_pce_connection()
+        logger.debug("Fetching unmanaged workloads with label filters from PCE")
+        
+        # Build query parameters - include managed=false
+        params = {
+            "include": "labels",
+            "max_results": max_results,
+            "managed": "false"  # Only get unmanaged workloads
+        }
+        
+        # Get all labels first to find URIs for the specified values
+        all_labels = pce.labels.get()
+        label_uris = []
+        
+        # Find URIs for matching label values
+        for label in all_labels:
+            if hasattr(label, 'key') and hasattr(label, 'value') and hasattr(label, 'href'):
+                if (app and label.key == 'app' and label.value == app) or \
+                   (env and label.key == 'env' and label.value == env) or \
+                   (role and label.key == 'role' and label.value == role) or \
+                   (loc and label.key == 'loc' and label.value == loc):
+                    label_uris.append(label.href)
+        
+        # Add labels parameter as JSON string if we found matching labels
+        if label_uris:
+            params["labels"] = json.dumps([label_uris])
+        
+        workloads = pce.workloads.get(params=params)
+        
+        # Handle different response types
+        if hasattr(workloads, '__len__'):
+            count = len(workloads)
+            logger.debug(f"Successfully retrieved {count} unmanaged workloads with label filters")
+        else:
+            logger.debug("Successfully retrieved unmanaged workloads with label filters (count unknown)")
+        
+        # Use custom encoder for proper JSON serialization first
+        encoder = IllumioJSONEncoder()
+        workloads_json = encoder.encode(workloads)
+        
+        # Parse JSON and filter fields
+        workloads_data = json.loads(workloads_json)
+        filtered_workloads = filter_workload_fields(workloads_data)
+        
+        # Re-encode filtered data
+        filtered_json = json.dumps(filtered_workloads)
+        
+        return f"Unmanaged Workloads: {filtered_json}"
+        
+    except AttributeError as e:
+        error_msg = f"PCE API method not found: {str(e)}"
+        logger.error(error_msg, exc_info=True)
+        return f"Error: {error_msg}"
+    except ConnectionError as e:
+        error_msg = f"PCE connection failed: {str(e)}"
+        logger.error(error_msg, exc_info=True)
+        return f"Error: {error_msg}"
+    except json.JSONDecodeError as e:
+        error_msg = f"JSON parsing failed: {str(e)}"
+        logger.error(error_msg, exc_info=True)
+        return f"Error: {error_msg}"
+    except Exception as e:
+        error_msg = f"PCE operation failed: {str(e)}"
+        logger.error(error_msg, exc_info=True)
+        return f"Error: {error_msg}"
+
+@mcp.tool
 async def get_workloads_by_label(
     app: Optional[str] = None,
     env: Optional[str] = None,
@@ -547,7 +736,7 @@ async def get_rulesets(
     
     try:
         pce = get_pce_connection()
-        resp = pce.get('/sec_policy/draft/rule_sets')
+        resp = pce.get('/sec_policy/active/rule_sets')
         rulesets = resp.json()
         
         # Apply filters
