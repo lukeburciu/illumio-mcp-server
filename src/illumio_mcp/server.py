@@ -736,21 +736,21 @@ async def get_rulesets(
     
     try:
         pce = get_pce_connection()
-        resp = pce.get('/sec_policy/active/rule_sets')
+        
+        # Build query parameters
+        params = {}
+        if name:
+            params["name"] = name
+        if enabled is not None:
+            params["enabled"] = enabled
+        if scopes:
+            params["scopes"] = json.dumps(scopes)
+        
+        resp = pce.get('/sec_policy/active/rule_sets', params=params)
         rulesets = resp.json()
         
-        # Apply filters
-        filtered_rulesets = rulesets
-        if name:
-            filtered_rulesets = [rs for rs in filtered_rulesets if name.lower() in rs.get('name', '').lower()]
-        if enabled is not None:
-            filtered_rulesets = [rs for rs in filtered_rulesets if rs.get('enabled') == enabled]
-        if scopes:
-            # Complex scope filtering would go here
-            pass
-        
         encoder = IllumioJSONEncoder()
-        rulesets_json = encoder.encode(filtered_rulesets)
+        rulesets_json = encoder.encode(rulesets)
         
         return f"Rulesets: {rulesets_json}"
     except Exception as e:
